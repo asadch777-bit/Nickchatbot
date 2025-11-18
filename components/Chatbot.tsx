@@ -19,6 +19,7 @@ export default function Chatbot() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -28,8 +29,25 @@ export default function Chatbot() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const formatTime = (date: Date): string => {
+    if (!isMounted) {
+      // Return a placeholder during SSR to avoid hydration mismatch
+      return '';
+    }
+    // Use explicit locale and format to ensure consistency
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -112,10 +130,7 @@ export default function Chatbot() {
                 dangerouslySetInnerHTML={{ __html: message.content }}
               />
               <div className={styles.messageTime}>
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {formatTime(message.timestamp)}
               </div>
             </div>
           </div>

@@ -129,8 +129,17 @@ async function extractProductsFromPage(url: string, isPromotional: boolean = fal
     });
 
     return products;
-  } catch (error) {
-    console.error(`Error extracting products from ${url}:`, error);
+  } catch (error: any) {
+    // Only log non-404 errors or log 404s silently
+    if (error?.response?.status === 404) {
+      // Silently skip 404 errors - these pages don't exist
+      return [];
+    }
+    // Log other errors but don't throw
+    if (error?.code !== 'ECONNABORTED' && error?.code !== 'ETIMEDOUT') {
+      // Only log unexpected errors (not timeouts or connection issues)
+      console.error(`Error extracting products from ${url}:`, error.message || error);
+    }
     return [];
   }
 }
@@ -203,8 +212,11 @@ async function checkForSales(): Promise<{ hasSales: boolean; hasBlackFriday: boo
     }
 
     return { hasSales, hasBlackFriday, saleText };
-  } catch (error) {
-    console.error('Error checking for sales:', error);
+  } catch (error: any) {
+    // Silently handle connection/timeout errors
+    if (error?.code !== 'ECONNABORTED' && error?.code !== 'ETIMEDOUT' && error?.response?.status !== 404) {
+      console.error('Error checking for sales:', error.message || error);
+    }
     return { hasSales: false, hasBlackFriday: false, saleText: '' };
   }
 }
@@ -367,8 +379,11 @@ export async function fetchGtechProducts(): Promise<ProductData> {
     console.log(`✅ Sales detected: ${salesInfo.hasSales}, Black Friday: ${salesInfo.hasBlackFriday}`);
 
     return productsCache;
-  } catch (error) {
-    console.error('Error fetching Gtech products:', error);
+  } catch (error: any) {
+    // Only log unexpected errors, not 404s or timeouts
+    if (error?.code !== 'ECONNABORTED' && error?.code !== 'ETIMEDOUT' && error?.response?.status !== 404) {
+      console.error('Error fetching Gtech products:', error.message || error);
+    }
     if (productsCache) {
       return productsCache;
     }
@@ -395,8 +410,11 @@ export async function getComprehensiveWebsiteData(): Promise<WebsiteData> {
   try {
     data = await fetchGtechProducts();
     salesInfo = await checkForSales();
-  } catch (error) {
-    console.error('Error in getComprehensiveWebsiteData:', error);
+  } catch (error: any) {
+    // Only log unexpected errors
+    if (error?.code !== 'ECONNABORTED' && error?.code !== 'ETIMEDOUT' && error?.response?.status !== 404) {
+      console.error('Error in getComprehensiveWebsiteData:', error.message || error);
+    }
     // Return safe default
     return {
       products: [],
@@ -553,8 +571,15 @@ export async function fetchProductDetails(productUrl: string): Promise<Product |
     }
 
     return null;
-  } catch (error) {
-    console.error('Error fetching product details:', error);
+  } catch (error: any) {
+    // Silently handle 404s - product page doesn't exist
+    if (error?.response?.status === 404) {
+      return null;
+    }
+    // Only log non-404, non-timeout errors
+    if (error?.code !== 'ECONNABORTED' && error?.code !== 'ETIMEDOUT' && error?.response?.status !== 404) {
+      console.error('Error fetching product details:', error.message || error);
+    }
     return null;
   }
 }
