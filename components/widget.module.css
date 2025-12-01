@@ -1,0 +1,146 @@
+
+
+.widgetContainer {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.toggleButton {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #0066ff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.toggleButton:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.toggleButton svg {
+    width: 30px;
+    height: 30px;
+}
+
+.hidden {
+    display: none;
+}
+
+.chatContainer {
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    width: 380px;
+    height: 600px;
+    max-height: 80vh;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    transform: scale(0);
+    transform-origin: bottom right;
+    transition: transform 0.3s ease;
+    opacity: 0;
+}
+
+.chatContainer.open {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.chatContent {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.closeButton {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: background 0.2s ease;
+}
+
+.closeButton:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.closeButton svg {
+    width: 20px;
+    height: 20px;
+    stroke: white;
+}
+
+.backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Mobile styles */
+@media (max-width: 767px) {
+    .chatContainer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        bottom: auto;
+        border-radius: 0;
+        transform: none;
+        opacity: 1;
+        visibility: hidden;
+    }
+
+    .chatContainer.open {
+        visibility: visible;
+    }
+
+    .toggleButton {
+        width: 56px;
+        height: 56px;
+    }
+
+    .toggleButton svg {
+        width: 28px;
+        height: 28px;
+    }
+}
