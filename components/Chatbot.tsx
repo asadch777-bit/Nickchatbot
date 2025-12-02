@@ -102,9 +102,10 @@ export default function Chatbot() {
 
   return (
     <div className={styles.chatbotContainer}>
+      
       <div className={styles.chatbotHeader}>
         <div className={styles.headerContent}>
-          <div className={styles.avatar}>N</div>
+          {/* <div className={styles.avatar}>N</div> */}
           <div>
             <h2>NICK</h2>
             <p>Gtech Product Assistant</p>

@@ -1,4 +1,4 @@
-import Chatbot from '@/components/Chatbot';
+import ChatPopup from '@/components/ChatPopup';
 import styles from './page.module.css';
 
 export default function Home() {
@@ -6,12 +6,12 @@ export default function Home() {
     <main className={styles.main}>
       <div className={styles.container}>
         <div className={styles.header}>
-          <h1 className={styles.title}>Welcome to Gtech</h1>
+        {/*  <h1 className={styles.title}>Welcome to Gtech</h1>*/}
           <p className={styles.subtitle}>
             Chat with NICK, your intelligent product assistant
           </p>
         </div>
-        <Chatbot />
+        <ChatPopup />
         <div className={styles.footer}>
           <p>
             Powered by Gtech |{' '}
