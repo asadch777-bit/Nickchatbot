@@ -2,83 +2,52 @@
 
 import { useState } from 'react';
 import Chatbot from './Chatbot';
+import styles from './ChatPopup.module.css';
 
 export default function ChatPopup() {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      
+      {/* FLOATING BUTTON (when closed) */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            width: '70px',
-            height: '70px',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: '#00A859', // Gtech green
-            color: 'white',
-            fontSize: '28px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-            zIndex: 9999,
-          }}
+          className={styles.popupButton}
         >
-          💬
+          {/* Nick Image */}
+          <div className={styles.avatarContainer}>
+            <img
+              src="/Nickp.png"
+              alt="Nick Avatar"
+              className={styles.avatarImage}
+            />
+          </div>
+
+          {/* Text under image */}
+          <span className={styles.buttonText}>
+            Click here for Product Assitance 
+          </span>
         </button>
       )}
 
-      
+      {/* CHAT WINDOW (when open) */}
       {open && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            width: '380px',
-            height: '520px',
-            backgroundColor: 'white',
-            borderRadius: '16px',
-            boxShadow: '0 6px 24px rgba(0,0,0,0.35)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            zIndex: 10000,
-          }}
-        >
-
-          <div
-            style={{
-              padding: '10px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderBottom: '1px solid #ddd',
-              backgroundColor: '#f6f6f6',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}
-          >
+        <div className={styles.popupWindow}>
+          {/* HEADER */}
+          <div className={styles.popupHeader}>
             Gtech Digital Assistant
+
             <button
               onClick={() => setOpen(false)}
-              style={{
-                border: 'none',
-                background: 'none',
-                fontSize: '20px',
-                cursor: 'pointer',
-              }}
+              className={styles.closeButton}
             >
               ✕
             </button>
           </div>
 
-
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          {/* CHATBOT CONTENT */}
+          <div className={styles.chatContent}>
             <Chatbot />
           </div>
         </div>
