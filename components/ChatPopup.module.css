@@ -12,6 +12,17 @@
   align-items: center;
   justify-content: center;
   z-index: 9999;
+  transition: transform 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.popupButton:hover {
+  transform: scale(1.05);
+}
+
+.popupButton:active {
+  transform: scale(0.95);
 }
 
 .avatarContainer {
@@ -71,11 +82,23 @@
   font-size: 20px;
   cursor: pointer;
   padding: 4px 8px;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 50%;
+}
+
+.closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.closeButton:active {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .chatContent {
@@ -100,6 +123,7 @@
   .buttonText {
     font-size: 11px;
     margin-top: 6px;
+    padding: 0 4px;
   }
 
   .popupWindow {
@@ -114,6 +138,17 @@
     max-height: 100%;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .popupHeader {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .closeButton {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 22px;
   }
 }
 
@@ -132,8 +167,34 @@
   }
 
   .buttonText {
-    font-size: 10px;
+    font-size: 9px;
     margin-top: 4px;
+    padding: 0 2px;
+    line-height: 1.1;
+  }
+
+  .popupHeader {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .closeButton {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 20px;
+    padding: 2px 6px;
+  }
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .popupWindow {
+    height: 100vh;
+  }
+
+  .popupButton {
+    bottom: 12px;
+    right: 12px;
   }
 }
 
