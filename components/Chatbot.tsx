@@ -105,7 +105,10 @@ export default function Chatbot() {
       
       <div className={styles.chatbotHeader}>
         <div className={styles.headerContent}>
-           <div className={styles.avatar}>N</div> 
+         {  /* <div className={styles.avatar}>N</div> */}
+         <div className={styles.avatar}>
+          <img src="/Nickp1.png" alt="Nick Avatar" className={styles.avatarImage} />
+         </div>
           <div>
             <h2>NICK</h2>
             <p>Gtech Product Assistant</p>
