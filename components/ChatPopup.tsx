@@ -9,32 +9,25 @@ export default function ChatPopup() {
 
   return (
     <>
-      {/* FLOATING BUTTON (when closed) */}
+      {/* Floating Button */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className={styles.popupButton}
-        >
-          {/* Nick Image */}
-          <div className={styles.avatarContainer}>
-            <img
-              src="/Nickp.png"
-              alt="Nick Avatar"
-              className={styles.avatarImage}
-            />
-          </div>
+  <button onClick={() => setOpen(true)} className={styles.popupButton}>
+    
+    {/* Green circle with icon */}
+    <div className={styles.iconCircle}>
+      💬
+    </div>
 
-          {/* Text under image */}
-          <span className={styles.buttonText}>
-            Click here for Product Assitance 
-          </span>
-        </button>
-      )}
+    {/* Label under the circle */}
+    <span className={styles.chatLabel}>Chat with us</span>
 
-      {/* CHAT WINDOW (when open) */}
+  </button>
+)}
+
+
+      {/* Chat Window */}
       {open && (
         <div className={styles.popupWindow}>
-          {/* HEADER */}
           <div className={styles.popupHeader}>
             Gtech Digital Assistant
 
@@ -46,7 +39,6 @@ export default function ChatPopup() {
             </button>
           </div>
 
-          {/* CHATBOT CONTENT */}
           <div className={styles.chatContent}>
             <Chatbot />
           </div>
