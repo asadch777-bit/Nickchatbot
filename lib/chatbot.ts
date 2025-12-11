@@ -40,6 +40,7 @@ const conversationContext = new Map<string, {
 
 export async function processChatMessage(message: string, sessionId: string = 'default'): Promise<ChatResponse> {
   try {
+    console.log('[Chatbot] Processing message:', message.substring(0, 50));
     // Get or create conversation context
     let context = conversationContext.get(sessionId);
     if (!context) {
@@ -65,7 +66,23 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     // Fetch website data first (needed for handleProblemSelection)
     let websiteData: any;
     try {
-      websiteData = await getComprehensiveWebsiteData();
+      websiteData = await Promise.race([
+        getComprehensiveWebsiteData(),
+        new Promise<any>((resolve) => setTimeout(() => {
+          console.warn('[Chatbot] Website data fetch timed out in action handler');
+          resolve({
+            products: [],
+            sales: [],
+            blackFriday: [],
+            promotions: [],
+            categories: [],
+            sections: [],
+            trending: [],
+            hasSales: false,
+            hasBlackFriday: false,
+          });
+        }, 10000))
+      ]);
       if (!websiteData.hasSales) websiteData.hasSales = false;
       if (!websiteData.hasBlackFriday) websiteData.hasBlackFriday = false;
       if (!websiteData.products) websiteData.products = [];
@@ -73,7 +90,7 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       if (!websiteData.blackFriday) websiteData.blackFriday = [];
       if (!websiteData.promotions) websiteData.promotions = [];
     } catch (error) {
-      console.error('Error fetching website data:', error);
+      console.error('[Chatbot] Error fetching website data in action handler:', error instanceof Error ? error.message : String(error));
       websiteData = {
         products: [],
         sales: [],
@@ -167,10 +184,26 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     
     console.log('Not a problem report or action - continuing to AI response'); // Debug log
 
-    // Fetch live data from website
+    // Fetch live data from website with timeout protection for Vercel
     let websiteData: any;
     try {
-      websiteData = await getComprehensiveWebsiteData();
+      websiteData = await Promise.race([
+        getComprehensiveWebsiteData(),
+        new Promise<any>((resolve) => setTimeout(() => {
+          console.warn('[Chatbot] Website data fetch timed out, using empty data');
+          resolve({
+            products: [],
+            sales: [],
+            blackFriday: [],
+            promotions: [],
+            categories: [],
+            sections: [],
+            trending: [],
+            hasSales: false,
+            hasBlackFriday: false,
+          });
+        }, 10000)) // 10 second timeout for Vercel
+      ]);
       // Ensure all required fields exist
       if (!websiteData.hasSales) websiteData.hasSales = false;
       if (!websiteData.hasBlackFriday) websiteData.hasBlackFriday = false;
@@ -179,7 +212,7 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       if (!websiteData.blackFriday) websiteData.blackFriday = [];
       if (!websiteData.promotions) websiteData.promotions = [];
     } catch (error) {
-      console.error('Error fetching website data:', error);
+      console.error('[Chatbot] Error fetching website data:', error instanceof Error ? error.message : String(error));
       // Return safe default
       websiteData = {
         products: [],
@@ -195,21 +228,31 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     }
     
     // Initialize RAG on first use (this will extract problem options from CSV)
+    // Make RAG initialization non-blocking - don't fail if it errors
     try {
-      await initializeRAG();
+      await Promise.race([
+        initializeRAG(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('RAG initialization timeout')), 5000))
+      ]).catch((error) => {
+        console.warn('[Chatbot] RAG initialization failed or timed out (non-fatal):', error instanceof Error ? error.message : String(error));
+      });
     } catch (error) {
-      console.error('Error initializing RAG:', error);
+      console.warn('[Chatbot] Error initializing RAG (non-fatal):', error instanceof Error ? error.message : String(error));
     }
     
     // Get RAG context for the query (especially for product queries)
+    // Make this non-blocking as well
     let ragContext = '';
     try {
-      ragContext = await getRAGContext(message);
+      ragContext = await Promise.race([
+        getRAGContext(message),
+        new Promise<string>((resolve) => setTimeout(() => resolve(''), 3000))
+      ]) as string;
       if (ragContext) {
-        console.log('Retrieved RAG context for query:', ragContext.substring(0, 200));
+        console.log('[Chatbot] Retrieved RAG context for query:', ragContext.substring(0, 200));
       }
     } catch (error) {
-      console.error('Error retrieving RAG context:', error);
+      console.warn('[Chatbot] Error retrieving RAG context (non-fatal):', error instanceof Error ? error.message : String(error));
     }
     
     // Build comprehensive context for AI
@@ -303,25 +346,29 @@ Support information:
 
 Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.`;
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-          ...context.conversationHistory.slice(-10).map(msg => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content,
-          })),
-          {
-            role: 'user',
-            content: message,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-      });
+      // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
+      const completion = await Promise.race([
+        openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            ...context.conversationHistory.slice(-10).map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            })),
+            {
+              role: 'user',
+              content: message,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 1500,
+        }),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('OpenAI API timeout')), 25000)) // 25 second timeout
+      ]);
 
       let aiResponse = completion.choices[0]?.message?.content || '';
 

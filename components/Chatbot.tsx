@@ -160,7 +160,7 @@ export default function Chatbot() {
     
     // Step 4: Convert plain URLs to clickable links (only process text parts)
     // Match URLs including those at end of sentences with punctuation
-    const urlPattern = /https?:\/\/[^\s<>"']+/g;
+    const urlPattern = /https?:\/\/[^\s<>"']+/g; 
     html = html.replace(urlPattern, (matched) => {
       // Skip if this looks like part of a placeholder
       if (matched.includes('__LINK_') || matched.includes('__MARKDOWN_') || matched.includes('__EXISTING_')) {

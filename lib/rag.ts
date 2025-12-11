@@ -37,13 +37,23 @@ export async function initializeRAG(): Promise<void> {
     // Check if data directory exists
     if (!fs.existsSync(dataDir)) {
       console.log('Data directory not found. Creating it...');
-      fs.mkdirSync(dataDir, { recursive: true });
-      console.log('Please place your data files in the /data folder');
+      try {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log('Please place your data files in the /data folder');
+      } catch (mkdirError) {
+        console.warn('Could not create data directory (this is OK on Vercel):', mkdirError);
+      }
       return;
     }
 
     // Read all files from data directory (including subdirectories)
-    const dataFiles = getAllDataFiles(dataDir);
+    let dataFiles: string[] = [];
+    try {
+      dataFiles = getAllDataFiles(dataDir);
+    } catch (error) {
+      console.warn('Error reading data directory (this is OK on Vercel):', error);
+      return;
+    }
 
     if (dataFiles.length === 0) {
       console.log('No data files found in /data folder');
