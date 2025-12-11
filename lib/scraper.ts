@@ -614,14 +614,26 @@ export async function searchProducts(query: string): Promise<Product[]> {
   const data = await fetchGtechProducts();
   const lowerQuery = query.toLowerCase();
 
+  // Extract product codes from query (e.g., HT50, LHT50, GT50)
+  const productCodePattern = /\b([A-Z]{2,}\d+)\b/gi;
+  const productCodes: string[] = [];
+  let match;
+  while ((match = productCodePattern.exec(query)) !== null) {
+    productCodes.push(match[1].toUpperCase());
+  }
+
   let results = data.products.filter(
-    (product) =>
-      matchesProduct(query, product.name) ||
-      product.name.toLowerCase().includes(lowerQuery) ||
-      product.description.toLowerCase().includes(lowerQuery) ||
-      product.category.toLowerCase().includes(lowerQuery) ||
-      product.features?.some((f) => f.toLowerCase().includes(lowerQuery)) ||
-      (product.specs && Object.values(product.specs).some(v => v.toLowerCase().includes(lowerQuery)))
+    (product) => {
+      const productNameLower = product.name.toLowerCase();
+      const matchesCode = productCodes.some(code => productNameLower.includes(code.toLowerCase()));
+      return matchesCode ||
+        matchesProduct(query, product.name) ||
+        product.name.toLowerCase().includes(lowerQuery) ||
+        product.description.toLowerCase().includes(lowerQuery) ||
+        product.category.toLowerCase().includes(lowerQuery) ||
+        product.features?.some((f) => f.toLowerCase().includes(lowerQuery)) ||
+        (product.specs && Object.values(product.specs).some(v => v.toLowerCase().includes(lowerQuery)));
+    }
   );
 
   if (results.length === 0) {
@@ -638,6 +650,8 @@ export async function searchProducts(query: string): Promise<Product[]> {
       'combi drill': '/products/power-tools/cordless-drills-drivers/combi-drill',
       'lawnmower': '/products/garden-tools/cordless-lawn-mowers',
       'hedge trimmer': '/products/garden-tools/cordless-hedge-trimmers',
+      'ht50': '/products/garden-tools/cordless-hedge-trimmers/ht50',
+      'lht50': '/products/garden-tools/cordless-hedge-trimmers/lht50',
     };
 
     for (const [key, url] of Object.entries(productSlugs)) {
@@ -682,6 +696,9 @@ export async function getProductByName(name: string): Promise<Product | null> {
       'combi drill': '/products/power-tools/cordless-drills-drivers/combi-drill',
       'lawnmower clm50': '/products/garden-tools/cordless-lawn-mowers/clm50',
       'hedge trimmer ht50': '/products/garden-tools/cordless-hedge-trimmers/ht50',
+      'ht50': '/products/garden-tools/cordless-hedge-trimmers/ht50',
+      'lht50': '/products/garden-tools/cordless-hedge-trimmers/lht50',
+      'gt50': '/products/garden-tools/grass-trimmers/gt50',
     };
 
     for (const [key, url] of Object.entries(productNameMap)) {
