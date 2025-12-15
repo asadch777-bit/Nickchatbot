@@ -210,9 +210,10 @@ export default function Chatbot() {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    const messageContent = input.trim();
     const userMessage: Message = {
       role: 'user',
-      content: input.trim(),
+      content: messageContent,
       timestamp: new Date(),
     };
 
@@ -226,7 +227,7 @@ export default function Chatbot() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: input.trim(), sessionId }),
+        body: JSON.stringify({ message: messageContent, sessionId }),
       });
 
       const data = await response.json();
