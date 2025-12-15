@@ -133,7 +133,16 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     }
 
     // If user provided model number after reporting a problem, show troubleshooting options
-    if (context.waitingForModelNumber && !message.startsWith('action:')) {
+    // But reset the flag if user sends a greeting (starting a new conversation)
+    const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|thanks|thank you)$/i.test(message.trim());
+    
+    if (context.waitingForModelNumber && isGreeting) {
+      console.log('User sent greeting while waiting for model number - resetting flag');
+      context.waitingForModelNumber = false;
+    }
+    
+    // If user provided model number after reporting a problem, show troubleshooting options
+    if (context.waitingForModelNumber && !message.startsWith('action:') && !isGreeting) {
       console.log('MODEL NUMBER PROVIDED - Showing troubleshooting options'); // Debug log
       context.waitingForModelNumber = false;
       context.problemOptionsShown = true;
