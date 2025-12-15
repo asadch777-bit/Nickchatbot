@@ -487,7 +487,15 @@ Generate a helpful, intelligent response based on the user's query and the live 
     }
 
     // Fallback: Intelligent response based on live data (no OpenAI)
-    return await generateIntelligentResponse(message, context, websiteData);
+    try {
+      return await generateIntelligentResponse(message, context, websiteData);
+    } catch (fallbackError) {
+      console.error('[Chatbot] Error in generateIntelligentResponse fallback:', fallbackError);
+      // Ultimate fallback - return a safe response
+      return {
+        response: `I'm here to help! I can assist you with product information, pricing, sales, ordering, and support. All information is fetched live from our website. What would you like to know? Or visit <a href="${GTECH_BASE_URL}" target="_blank">${GTECH_BASE_URL}</a> to browse our full range.`,
+      };
+    }
   } catch (error) {
     console.error('[Chatbot] Error in processChatMessage:', error);
     console.error('[Chatbot] Error type:', error instanceof Error ? error.constructor.name : typeof error);
@@ -589,7 +597,14 @@ async function generateIntelligentResponse(message: string, context: any, websit
   }
   
   // Handle product searches
-  const products = await searchProducts(message);
+  let products: Product[] = [];
+  try {
+    products = await searchProducts(message);
+  } catch (error) {
+    console.warn('[Chatbot] Error searching products in fallback:', error instanceof Error ? error.message : String(error));
+    products = [];
+  }
+  
   if (products.length > 0) {
     if (products.length === 1) {
       const product = products[0];
@@ -597,9 +612,13 @@ async function generateIntelligentResponse(message: string, context: any, websit
       
       // Fetch full details if needed
       if (!product.specs && product.url !== GTECH_BASE_URL) {
-        const fullDetails = await fetchProductDetails(product.url);
-        if (fullDetails) {
-          Object.assign(product, fullDetails);
+        try {
+          const fullDetails = await fetchProductDetails(product.url);
+          if (fullDetails) {
+            Object.assign(product, fullDetails);
+          }
+        } catch (error) {
+          console.warn('[Chatbot] Error fetching product details in fallback:', error instanceof Error ? error.message : String(error));
         }
       }
       
@@ -627,12 +646,16 @@ async function generateIntelligentResponse(message: string, context: any, websit
       response += `🔗 <a href="${product.url}" target="_blank">View Product Page</a><br/>`;
       response += `🛒 <a href="${product.url}" target="_blank">Add to Basket</a><br/><br/>`;
       
-      const related = await getRelatedProducts(product.name);
-      if (related.length > 0) {
-        response += `<strong>You might also like:</strong><br/>`;
-        related.forEach((rel) => {
-          response += `• <a href="${rel.url}" target="_blank">${rel.name}</a> (${rel.price})<br/>`;
-        });
+      try {
+        const related = await getRelatedProducts(product.name);
+        if (related.length > 0) {
+          response += `<strong>You might also like:</strong><br/>`;
+          related.forEach((rel) => {
+            response += `• <a href="${rel.url}" target="_blank">${rel.name}</a> (${rel.price})<br/>`;
+          });
+        }
+      } catch (error) {
+        console.warn('[Chatbot] Error fetching related products in fallback:', error instanceof Error ? error.message : String(error));
       }
       
       return { response };
