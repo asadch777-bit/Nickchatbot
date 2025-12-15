@@ -47,6 +47,7 @@ const conversationContext = new Map<string, {
   problemOptionsShown?: boolean;
   selectedProblem?: string;
   waitingForModelNumber?: boolean;
+  productModelNumber?: string;
 }>();
 
 export async function processChatMessage(message: string, sessionId: string = 'default'): Promise<ChatResponse> {
@@ -147,6 +148,23 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       context.waitingForModelNumber = false;
       context.problemOptionsShown = true;
       
+      // Store the model number
+      context.productModelNumber = message.trim();
+      
+      // Check if product is a hairdryer or hairstraightener (products without batteries)
+      const modelLower = message.toLowerCase().trim();
+      const isHairCareProduct = modelLower.includes('dryonic') || 
+                                modelLower.includes('styleonic') || 
+                                modelLower.includes('hair') || 
+                                modelLower.includes('dryer') || 
+                                modelLower.includes('straightener') ||
+                                (context.lastProduct && (
+                                  context.lastProduct.name.toLowerCase().includes('hair') ||
+                                  context.lastProduct.name.toLowerCase().includes('dryer') ||
+                                  context.lastProduct.name.toLowerCase().includes('straightener') ||
+                                  context.lastProduct.category?.toLowerCase().includes('hair')
+                                ));
+      
       try {
         // Ensure RAG is initialized to get problem options from CSV
         try {
@@ -185,6 +203,15 @@ export async function processChatMessage(message: string, sessionId: string = 'd
           ];
         }
         
+        // Filter out battery and charging options for hairdryers and hairstraighteners
+        if (isHairCareProduct) {
+          console.log('Product is hairdryer/straightener - filtering out battery options');
+          options = options.filter(opt => 
+            opt.action !== 'troubleshoot_battery' && 
+            opt.action !== 'troubleshoot_charging'
+          );
+        }
+        
         console.log('Showing troubleshooting options:', options.length, 'options'); // Debug log
         
         const response: ChatResponse = {
@@ -206,7 +233,19 @@ export async function processChatMessage(message: string, sessionId: string = 'd
           { label: "🔋 Battery not holding charge", value: "battery issue", action: "troubleshoot_battery" },
           { label: "🧹 Blockage or jammed", value: "blockage", action: "troubleshoot_blockage" },
           { label: "📱 Other problem", value: "other problem", action: "troubleshoot_other" }
-        ];
+        ].filter(opt => {
+          // Filter out battery options for hairdryers/straighteners in fallback too
+          const modelLower = context.productModelNumber?.toLowerCase() || '';
+          const isHairCareProduct = modelLower.includes('dryonic') || 
+                                    modelLower.includes('styleonic') || 
+                                    modelLower.includes('hair') || 
+                                    modelLower.includes('dryer') || 
+                                    modelLower.includes('straightener');
+          if (isHairCareProduct && (opt.action === 'troubleshoot_battery' || opt.action === 'troubleshoot_charging')) {
+            return false;
+          }
+          return true;
+        });
         const response: ChatResponse = {
           response: "I'm sorry to hear that you're experiencing an issue. Please choose an option from below what problem you are facing:",
           showOptions: true,
@@ -714,8 +753,37 @@ async function handleProblemSelection(
   context: any,
   websiteData: any
 ): Promise<ChatResponse> {
+  // Check if product is a hairdryer or hairstraightener (products without batteries)
+  const modelLower = context.productModelNumber?.toLowerCase() || '';
+  const productName = context.lastProduct?.name?.toLowerCase() || '';
+  const productCategory = context.lastProduct?.category?.toLowerCase() || '';
+  const isHairCareProduct = modelLower.includes('dryonic') || 
+                            modelLower.includes('styleonic') || 
+                            modelLower.includes('hair') || 
+                            modelLower.includes('dryer') || 
+                            modelLower.includes('straightener') ||
+                            productName.includes('hair') ||
+                            productName.includes('dryer') ||
+                            productName.includes('straightener') ||
+                            productCategory.includes('hair');
+
   const troubleshootingGuides: Record<string, string> = {
-    troubleshoot_power: `Here are steps to troubleshoot power issues:
+    troubleshoot_power: isHairCareProduct ? `Here are steps to troubleshoot power issues:
+
+1. **Check the Power Source**
+   • Ensure the device is properly plugged in
+   • Try a different power outlet
+   • Check if the power button is fully engaged
+   • Inspect the power cord for any damage
+
+2. **Reset the Device**
+   • Turn off and unplug for 30 seconds
+   • Plug back in and try again
+
+3. **Still Not Working?**
+   • Contact our support team for further assistance
+   • 📞 Phone: ${SUPPORT_PHONE}
+   • 📧 Email: ${SUPPORT_EMAIL}` : `Here are steps to troubleshoot power issues:
 
 1. **Check the Power Source**
    • Ensure the device is properly plugged in or the battery is charged
