@@ -20,6 +20,7 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   console.log('[API] POST handler called');
+  
   try {
     const body = await request.json();
     console.log('[API] Request body parsed:', { hasMessage: !!body.message, hasSessionId: !!body.sessionId });
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       console.error('[API] Error type:', processError instanceof Error ? processError.constructor.name : typeof processError);
       console.error('[API] Error message:', processError instanceof Error ? processError.message : String(processError));
       console.error('[API] Error stack:', processError instanceof Error ? processError.stack : 'No stack trace');
-      throw processError; // Re-throw to be caught by outer catch
+      throw processError;
     }
 
     return NextResponse.json(response);
