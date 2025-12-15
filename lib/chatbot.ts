@@ -46,6 +46,7 @@ const conversationContext = new Map<string, {
   conversationHistory: Array<{role: string; content: string}>;
   problemOptionsShown?: boolean;
   selectedProblem?: string;
+  waitingForModelNumber?: boolean;
 }>();
 
 export async function processChatMessage(message: string, sessionId: string = 'default'): Promise<ChatResponse> {
@@ -117,9 +118,24 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       return await handleProblemSelection(action, context, websiteData);
     }
 
-    // If it's a problem report (and not an action selection), show interactive options
-    if (isProblemReport && !message.startsWith('action:')) {
-      console.log('PROBLEM DETECTED - Returning options immediately'); // Debug log
+    // If it's a problem report (and not an action selection), ask for model number first
+    if (isProblemReport && !message.startsWith('action:') && !context.waitingForModelNumber) {
+      console.log('PROBLEM DETECTED - Asking for model number'); // Debug log
+      context.waitingForModelNumber = true;
+      
+      const response: ChatResponse = {
+        response: "Sorry you're having an issue. Please share the product model number so I can assist you.",
+        showOptions: false
+      };
+      
+      console.log('Returning response asking for model number'); // Debug log
+      return response;
+    }
+
+    // If user provided model number after reporting a problem, show troubleshooting options
+    if (context.waitingForModelNumber && !message.startsWith('action:')) {
+      console.log('MODEL NUMBER PROVIDED - Showing troubleshooting options'); // Debug log
+      context.waitingForModelNumber = false;
       context.problemOptionsShown = true;
       
       try {
@@ -160,10 +176,10 @@ export async function processChatMessage(message: string, sessionId: string = 'd
           ];
         }
         
-        console.log('Problem detected - showing options:', options.length, 'options'); // Debug log
+        console.log('Showing troubleshooting options:', options.length, 'options'); // Debug log
         
         const response: ChatResponse = {
-          response: "I'm sorry to hear that you're experiencing an issue. Please choose an option from below what problem you are facing:",
+          response: "Thank you. Please choose an option from below what problem you are facing:",
           showOptions: true,
           options: options
         };
