@@ -1,64 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processChatMessage } from '@/lib/chatbot';
 
-// Route segment config for Vercel
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-// Handle OPTIONS for CORS preflight
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
-
 export async function POST(request: NextRequest) {
-  console.log('[API] POST handler called');
-  
+  console.log('[API] POST /api/chat called');
+
   try {
     const body = await request.json();
-    console.log('[API] Request body parsed:', { hasMessage: !!body.message, hasSessionId: !!body.sessionId });
-    
-    const { message, sessionId } = body;
+    const { message, sessionId } = body ?? {};
 
     if (!message || typeof message !== 'string') {
-      console.error('[API] Invalid message');
+      console.error('[API] Invalid message payload');
       return NextResponse.json(
         { error: 'Message is required' },
         { status: 400 }
       );
     }
 
-    console.log('[API] Processing message:', message.substring(0, 50));
-    
-    let response;
-    try {
-      response = await processChatMessage(message, sessionId || 'default');
-      console.log('[API] Response generated successfully, returning...');
-    } catch (processError) {
-      console.error('[API] Error in processChatMessage:', processError);
-      console.error('[API] Error type:', processError instanceof Error ? processError.constructor.name : typeof processError);
-      console.error('[API] Error message:', processError instanceof Error ? processError.message : String(processError));
-      console.error('[API] Error stack:', processError instanceof Error ? processError.stack : 'No stack trace');
-      throw processError; // Re-throw to be caught by outer catch
-    }
+    console.log('[API] Processing message:', message.slice(0, 50));
+
+    const response = await processChatMessage(
+      message,
+      sessionId || 'default'
+    );
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[API] Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    console.error('[API] Fatal error in /api/chat');
+
+    if (error instanceof Error) {
+      console.error('[API] Error message:', error.message);
+      console.error('[API] Error stack:', error.stack);
+    } else {
+      console.error('[API] Unknown error:', error);
+    }
+
     return NextResponse.json(
-      { 
-        response: 'Sorry, I encountered an error. Please try again later or contact support at support@gtech.co.uk',
-        error: process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error',
-        showOptions: false
+      {
+        response:
+          'Sorry, something went wrong. Please try again later.',
+        showOptions: false,
       },
       { status: 500 }
     );
@@ -66,8 +51,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ 
-    message: 'Gtech Chatbot API - NICK',
-    status: 'online'
+  return NextResponse.json({
+    status: 'online',
+    service: 'Gtech Chatbot API (NICK)',
   });
 }
