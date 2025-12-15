@@ -119,39 +119,25 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       return await handleProblemSelection(action, context, websiteData);
     }
 
-    // If it's a problem report (and not an action selection), ask for model number first
-    if (isProblemReport && !message.startsWith('action:') && !context.waitingForModelNumber) {
-      console.log('PROBLEM DETECTED - Asking for model number'); // Debug log
-      context.waitingForModelNumber = true;
+    // If it's a problem report, try to extract product model number from the message
+    if (isProblemReport && !message.startsWith('action:')) {
+      // Try to extract product codes (e.g., GT50, HT50, LHT50, etc.)
+      const productCodePattern = /\b([A-Z]{2,}\d+)\b/gi;
+      const productCodes: string[] = [];
+      let match;
+      while ((match = productCodePattern.exec(message)) !== null) {
+        productCodes.push(match[1].toUpperCase());
+      }
       
-      const response: ChatResponse = {
-        response: "Sorry you're having an issue. Please share the product model number so I can assist you.",
-        showOptions: false
-      };
-      
-      console.log('Returning response asking for model number'); // Debug log
-      return response;
-    }
-
-    // If user provided model number after reporting a problem, show troubleshooting options
-    // But reset the flag if user sends a greeting (starting a new conversation)
-    const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|thanks|thank you)$/i.test(message.trim());
-    
-    if (context.waitingForModelNumber && isGreeting) {
-      console.log('User sent greeting while waiting for model number - resetting flag');
-      context.waitingForModelNumber = false;
-    }
-    
-    // If user provided model number after reporting a problem, continue with natural conversation
-    if (context.waitingForModelNumber && !message.startsWith('action:') && !isGreeting) {
-      console.log('MODEL NUMBER PROVIDED - Continuing with natural troubleshooting conversation'); // Debug log
-      context.waitingForModelNumber = false;
-      
-      // Store the model number
-      context.productModelNumber = message.trim();
-      
-      // Continue to normal flow - the AI will use the model number and RAG context to help troubleshoot
-      // The chatbot will have a natural conversation about the problem
+      if (productCodes.length > 0) {
+        // Product model found in the message - store it and continue with troubleshooting
+        context.productModelNumber = productCodes[0];
+        console.log('PROBLEM DETECTED with product model:', context.productModelNumber);
+        // Continue to normal flow - the AI will use the model number and RAG context to help troubleshoot
+      } else {
+        // No product model found - the AI will naturally ask for it in the conversation
+        console.log('PROBLEM DETECTED but no product model found - AI will ask naturally');
+      }
     }
     
     console.log('Not a problem report or action - continuing to AI response'); // Debug log
