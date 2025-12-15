@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       { 
-        response: 'Sorry, I encountered an error. Please try again later or contact support at support@gtech.co.uk',
+        response: 'Sorry, I encountered an error. Please try again later.',
         error: process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error',
         showOptions: false
       },
