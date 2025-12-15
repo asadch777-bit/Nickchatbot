@@ -510,7 +510,11 @@ Generate a helpful, intelligent response based on the user's query and the live 
     // Fallback: Intelligent response based on live data (no OpenAI)
     return await generateIntelligentResponse(message, context, websiteData);
   } catch (error) {
-    console.error('Error in processChatMessage:', error);
+    console.error('[Chatbot] Error in processChatMessage:', error);
+    console.error('[Chatbot] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[Chatbot] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[Chatbot] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
     // Return a helpful error message
     return {
       response: `I apologize, but I encountered an issue processing your request. Please try again or contact our support team at ${SUPPORT_EMAIL} or ${SUPPORT_PHONE} for assistance.`,
