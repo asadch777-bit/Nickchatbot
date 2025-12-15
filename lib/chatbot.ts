@@ -10,9 +10,19 @@ import {
 import OpenAI from 'openai';
 import { initializeRAG, getRAGContext, getProblemOptions } from './rag';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY || '',
-});
+// Initialize OpenAI client only if API key is available
+let openai: OpenAI | null = null;
+const apiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY;
+if (apiKey) {
+  try {
+    openai = new OpenAI({ apiKey });
+    console.log('[Chatbot] OpenAI client initialized');
+  } catch (error) {
+    console.error('[Chatbot] Error initializing OpenAI client:', error);
+  }
+} else {
+  console.warn('[Chatbot] No OpenAI API key found. Chatbot will use fallback responses.');
+}
 
 export interface ChatResponse {
   response: string;
@@ -287,7 +297,10 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     }
 
     // Use OpenAI to generate intelligent response
-    if (process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY) {
+    const hasOpenAIKey = !!openai && !!(process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY);
+    console.log('[Chatbot] Has OpenAI API Key:', hasOpenAIKey);
+    
+    if (hasOpenAIKey && openai) {
     try {
       // Build product list for AI
       let productList = '';
@@ -347,6 +360,10 @@ Support information:
 Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.`;
 
       // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
+      if (!openai) {
+        throw new Error('OpenAI client not initialized');
+      }
+      
       const completion = await Promise.race([
         openai.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -383,6 +400,10 @@ Generate a helpful, intelligent response based on the user's query and the live 
           productsInfo += `${index + 1}. ${product.name} - ${product.price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
         });
 
+        if (!openai) {
+          throw new Error('OpenAI client not initialized');
+        }
+        
         const enhancedCompletion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -429,6 +450,10 @@ Generate a helpful, intelligent response based on the user's query and the live 
           }
         }
 
+        if (!openai) {
+          throw new Error('OpenAI client not initialized');
+        }
+        
         const enhancedCompletion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -473,10 +498,13 @@ Generate a helpful, intelligent response based on the user's query and the live 
       context.conversationHistory.push({ role: 'assistant', content: formattedResponse });
 
       return { response: formattedResponse };
-    } catch (error) {
-      console.error('OpenAI error:', error);
+      } catch (error) {
+      console.error('[Chatbot] OpenAI error:', error instanceof Error ? error.message : String(error));
+      console.error('[Chatbot] OpenAI error details:', error);
       // Fallback to intelligent data-based response
     }
+    } else {
+      console.log('[Chatbot] No OpenAI API key, using fallback response');
     }
 
     // Fallback: Intelligent response based on live data (no OpenAI)

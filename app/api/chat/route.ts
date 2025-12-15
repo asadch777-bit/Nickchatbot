@@ -12,8 +12,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[API] Received message:', message.substring(0, 50));
+    console.log('[API] OpenAI API Key exists:', !!(process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY));
+    
     const response = await processChatMessage(message, sessionId || 'default');
 
+    console.log('[API] Response generated successfully');
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error in chat API:', error);
