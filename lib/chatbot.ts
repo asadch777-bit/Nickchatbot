@@ -314,6 +314,25 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       console.warn('[Chatbot] Error initializing RAG (non-fatal):', error instanceof Error ? error.message : String(error));
     }
     
+    // Search for products FIRST so we can include them in the context
+    let searchedProducts: Product[] = [];
+    try {
+      searchedProducts = await Promise.race([
+        searchProducts(message),
+        new Promise<Product[]>((resolve) => setTimeout(() => resolve([]), 5000))
+      ]) as Product[];
+      if (searchedProducts.length > 0) {
+        console.log('[Chatbot] Found products from search:', searchedProducts.length);
+        if (searchedProducts.length === 1) {
+          context.lastProduct = searchedProducts[0];
+        } else {
+          context.lastProducts = searchedProducts.slice(0, 10);
+        }
+      }
+    } catch (error) {
+      console.warn('[Chatbot] Error searching products (non-fatal):', error instanceof Error ? error.message : String(error));
+    }
+
     // Get RAG context for the query (especially for product queries)
     // Make this non-blocking as well
     let ragContext = '';
@@ -331,6 +350,20 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     
     // Build comprehensive context for AI
     let contextInfo = '';
+    
+    // Add found products information to context
+    if (searchedProducts.length > 0) {
+      contextInfo += `\n--- Products Found from Query ---\n`;
+      searchedProducts.forEach((product, index) => {
+        contextInfo += `${index + 1}. ${product.name} - ${product.price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''}\n`;
+        if (product.description) contextInfo += `   Description: ${product.description.substring(0, 200)}\n`;
+        if (product.specs && Object.keys(product.specs).length > 0) {
+          contextInfo += `   Specs: ${Object.entries(product.specs).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ')}\n`;
+        }
+        contextInfo += `   URL: ${product.url}\n\n`;
+      });
+      contextInfo += `--- End of Found Products ---\n\n`;
+    }
     
     // Add RAG context if available (this contains product information from CSV)
     if (ragContext) {
@@ -545,16 +578,8 @@ Generate a helpful, intelligent response based on the user's query and the live 
         }
       }
 
-      // If user searches for products, update context
-      const products = await searchProducts(message);
-      if (products.length > 0) {
-        if (products.length === 1) {
-          context.lastProduct = products[0];
-        } else {
-          context.lastProducts = products.slice(0, 10);
-        }
-      }
-
+      // Products are already searched and added to context above, so we don't need to search again
+      
       // Format response with HTML links
       const formattedResponse = formatResponseWithLinks(aiResponse, websiteData.products);
 
