@@ -142,118 +142,16 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       context.waitingForModelNumber = false;
     }
     
-    // If user provided model number after reporting a problem, show troubleshooting options
+    // If user provided model number after reporting a problem, continue with natural conversation
     if (context.waitingForModelNumber && !message.startsWith('action:') && !isGreeting) {
-      console.log('MODEL NUMBER PROVIDED - Showing troubleshooting options'); // Debug log
+      console.log('MODEL NUMBER PROVIDED - Continuing with natural troubleshooting conversation'); // Debug log
       context.waitingForModelNumber = false;
-      context.problemOptionsShown = true;
       
       // Store the model number
       context.productModelNumber = message.trim();
       
-      // Check if product is a hairdryer or hairstraightener (products without batteries)
-      const modelLower = message.toLowerCase().trim();
-      const isHairCareProduct = modelLower.includes('dryonic') || 
-                                modelLower.includes('styleonic') || 
-                                modelLower.includes('hair') || 
-                                modelLower.includes('dryer') || 
-                                modelLower.includes('straightener') ||
-                                (context.lastProduct && (
-                                  context.lastProduct.name.toLowerCase().includes('hair') ||
-                                  context.lastProduct.name.toLowerCase().includes('dryer') ||
-                                  context.lastProduct.name.toLowerCase().includes('straightener') ||
-                                  context.lastProduct.category?.toLowerCase().includes('hair')
-                                ));
-      
-      try {
-        // Ensure RAG is initialized to get problem options from CSV
-        try {
-          await initializeRAG();
-        } catch (ragError) {
-          console.error('Error initializing RAG (non-fatal):', ragError);
-          // Continue anyway - getProblemOptions has fallback defaults
-        }
-        
-        // Get problem options from RAG data (CSV file)
-        let options: Array<{ label: string; value: string; action: string }> = [];
-        try {
-          options = getProblemOptions();
-          // Ensure we have at least some options
-          if (!options || options.length === 0) {
-            console.warn('No options from getProblemOptions, using defaults');
-            options = [
-              { label: "🔌 Not turning on / Power issue", value: "power issue", action: "troubleshoot_power" },
-              { label: "⚡ Charging problem", value: "charging problem", action: "troubleshoot_charging" },
-              { label: "🔧 Mechanical issue / Not cutting properly", value: "mechanical issue", action: "troubleshoot_mechanical" },
-              { label: "🔋 Battery not holding charge", value: "battery issue", action: "troubleshoot_battery" },
-              { label: "🧹 Blockage or jammed", value: "blockage", action: "troubleshoot_blockage" },
-              { label: "📱 Other problem", value: "other problem", action: "troubleshoot_other" }
-            ];
-          }
-        } catch (optionsError) {
-          console.error('Error getting problem options:', optionsError);
-          // Use hardcoded defaults
-          options = [
-            { label: "🔌 Not turning on / Power issue", value: "power issue", action: "troubleshoot_power" },
-            { label: "⚡ Charging problem", value: "charging problem", action: "troubleshoot_charging" },
-            { label: "🔧 Mechanical issue / Not cutting properly", value: "mechanical issue", action: "troubleshoot_mechanical" },
-            { label: "🔋 Battery not holding charge", value: "battery issue", action: "troubleshoot_battery" },
-            { label: "🧹 Blockage or jammed", value: "blockage", action: "troubleshoot_blockage" },
-            { label: "📱 Other problem", value: "other problem", action: "troubleshoot_other" }
-          ];
-        }
-        
-        // Filter out battery and charging options for hairdryers and hairstraighteners
-        if (isHairCareProduct) {
-          console.log('Product is hairdryer/straightener - filtering out battery options');
-          options = options.filter(opt => 
-            opt.action !== 'troubleshoot_battery' && 
-            opt.action !== 'troubleshoot_charging'
-          );
-        }
-        
-        console.log('Showing troubleshooting options:', options.length, 'options'); // Debug log
-        
-        const response: ChatResponse = {
-          response: "Thank you. Please choose an option from below what problem you are facing:",
-          showOptions: true,
-          options: options
-        };
-        
-        console.log('Returning response with options:', response.options?.length); // Debug log
-        return response;
-      } catch (error) {
-        console.error('Unexpected error in problem detection:', error);
-        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-        // Last resort fallback
-        const fallbackOptions = [
-          { label: "🔌 Not turning on / Power issue", value: "power issue", action: "troubleshoot_power" },
-          { label: "⚡ Charging problem", value: "charging problem", action: "troubleshoot_charging" },
-          { label: "🔧 Mechanical issue / Not cutting properly", value: "mechanical issue", action: "troubleshoot_mechanical" },
-          { label: "🔋 Battery not holding charge", value: "battery issue", action: "troubleshoot_battery" },
-          { label: "🧹 Blockage or jammed", value: "blockage", action: "troubleshoot_blockage" },
-          { label: "📱 Other problem", value: "other problem", action: "troubleshoot_other" }
-        ].filter(opt => {
-          // Filter out battery options for hairdryers/straighteners in fallback too
-          const modelLower = context.productModelNumber?.toLowerCase() || '';
-          const isHairCareProduct = modelLower.includes('dryonic') || 
-                                    modelLower.includes('styleonic') || 
-                                    modelLower.includes('hair') || 
-                                    modelLower.includes('dryer') || 
-                                    modelLower.includes('straightener');
-          if (isHairCareProduct && (opt.action === 'troubleshoot_battery' || opt.action === 'troubleshoot_charging')) {
-            return false;
-          }
-          return true;
-        });
-        const response: ChatResponse = {
-          response: "I'm sorry to hear that you're experiencing an issue. Please choose an option from below what problem you are facing:",
-          showOptions: true,
-          options: fallbackOptions
-        };
-        console.log('Returning fallback response with options:', response.options?.length); // Debug log
-        return response;
-      }
+      // Continue to normal flow - the AI will use the model number and RAG context to help troubleshoot
+      // The chatbot will have a natural conversation about the problem
     }
     
     console.log('Not a problem report or action - continuing to AI response'); // Debug log
@@ -430,7 +328,13 @@ CRITICAL RULES:
    • If a user asks about a product that appears in RAG context (e.g., "HT50", "LHT50", "GT50"), you MUST use that information to respond
    • DO NOT say the product is not available if it appears in the RAG context - instead, provide the information from RAG context
 9. Combine RAG knowledge with live website data when discussing products, prices, or availability
-10. If the user reports a problem with a product (e.g., "my HT50 is not working"), use the RAG context to provide relevant troubleshooting information from the product database
+10. **Troubleshooting Help**: When a user reports a problem with a product:
+    • If a product model number is provided (check conversation history or productModelNumber in context), search for that product in RAG context
+    • Use the troubleshooting information from RAG context to provide specific, helpful solutions
+    • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
+    • Provide step-by-step troubleshooting guidance based on the product information
+    • Be conversational and helpful - guide the user through solutions naturally rather than showing options or lists
+    • If the product model is known, reference specific troubleshooting steps from the product database
 11. If RAG context shows product information but the product isn't in the live website data, still provide the information from RAG and note that live pricing/availability should be checked on the website
 
 Current website data:
