@@ -8,6 +8,7 @@ import {
   Product
 } from './scraper';
 import OpenAI from 'openai';
+import { searchKnowledge } from './knowledgeData';
 
 // Initialize OpenAI client only if API key is available
 let openai: OpenAI | null = null;
@@ -268,8 +269,39 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     */
     console.log('[Chatbot] RAG context retrieval is disabled');
     
+    // Search knowledge base for relevant information
+    let knowledgeResults: any[] = [];
+    try {
+      knowledgeResults = searchKnowledge(message, 5);
+      if (knowledgeResults.length > 0) {
+        console.log('[Chatbot] Found knowledge base results:', knowledgeResults.length);
+      }
+    } catch (error) {
+      console.warn('[Chatbot] Error searching knowledge base (non-fatal):', error instanceof Error ? error.message : String(error));
+    }
+    
     // Build comprehensive context for AI
     let contextInfo = '';
+    
+    // Add knowledge base information if found
+    if (knowledgeResults.length > 0) {
+      contextInfo += `\n--- Knowledge Base Information ---\n`;
+      knowledgeResults.forEach((kbItem, index) => {
+        const kbText = Object.entries(kbItem)
+          .map(([key, value]) => {
+            if (value && typeof value === 'string') {
+              return `${key}: ${value}`;
+            } else if (value && typeof value === 'object') {
+              return `${key}: ${JSON.stringify(value)}`;
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+        contextInfo += `${index + 1}. ${kbText}\n\n`;
+      });
+      contextInfo += `--- End of Knowledge Base ---\n\n`;
+    }
     
     // Add found products information to context
     if (searchedProducts.length > 0) {
@@ -343,7 +375,8 @@ export async function processChatMessage(message: string, sessionId: string = 'd
 CRITICAL RULES:
 1. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
 2. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
-3. Understand context perfectly:
+3. **USE KNOWLEDGE BASE**: If "Knowledge Base Information" is provided above, use that information to answer questions. The knowledge base contains authoritative information about products, troubleshooting, FAQs, and support. Prioritize knowledge base information when available.
+4. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
    • If user asks "how to order these?", provide ordering steps for ALL products in lastProducts
