@@ -209,8 +209,10 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       };
     }
     
-    // Initialize RAG on first use (this will extract problem options from CSV)
+    // RAG DISABLED - Initialize RAG on first use (this will extract problem options from CSV)
     // Make RAG initialization non-blocking - don't fail if it errors
+    // RAG is currently disabled
+    /*
     try {
       await Promise.race([
         initializeRAG(),
@@ -221,6 +223,8 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     } catch (error) {
       console.warn('[Chatbot] Error initializing RAG (non-fatal):', error instanceof Error ? error.message : String(error));
     }
+    */
+    console.log('[Chatbot] RAG is disabled');
     
     // Search for products FIRST so we can include them in the context
     let searchedProducts: Product[] = [];
@@ -241,9 +245,11 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       console.warn('[Chatbot] Error searching products (non-fatal):', error instanceof Error ? error.message : String(error));
     }
 
-    // Get RAG context for the query (especially for product queries)
+    // RAG DISABLED - Get RAG context for the query (especially for product queries)
     // Make this non-blocking as well
+    // RAG is currently disabled
     let ragContext = '';
+    /*
     try {
       ragContext = await Promise.race([
         getRAGContext(message),
@@ -255,6 +261,8 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     } catch (error) {
       console.warn('[Chatbot] Error retrieving RAG context (non-fatal):', error instanceof Error ? error.message : String(error));
     }
+    */
+    console.log('[Chatbot] RAG context retrieval is disabled');
     
     // Build comprehensive context for AI
     let contextInfo = '';
@@ -273,10 +281,11 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       contextInfo += `--- End of Found Products ---\n\n`;
     }
     
-    // Add RAG context if available (this contains product information from CSV)
-    if (ragContext) {
-      contextInfo += `\n--- Product Information from Database (RAG) ---\n${ragContext}\n--- End of RAG Context ---\n\n`;
-    }
+    // RAG DISABLED - Add RAG context if available (this contains product information from CSV)
+    // RAG is currently disabled
+    // if (ragContext) {
+    //   contextInfo += `\n--- Product Information from Database (RAG) ---\n${ragContext}\n--- End of RAG Context ---\n\n`;
+    // }
     
     // Add sales information
     contextInfo += `Current Sales Status:\n`;
