@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 export const revalidate = 0; // Never cache
+export const fetchCache = 'force-no-store'; // Prevent all caching
 
 // Handle OPTIONS for CORS preflight
 export async function OPTIONS() {
@@ -22,14 +23,17 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   console.log('[API] POST handler called');
   
-  // CORS headers and cache prevention
+  // CORS headers and aggressive cache prevention for Vercel
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
+    'CDN-Cache-Control': 'no-store',
+    'Vercel-CDN-Cache-Control': 'no-store',
     'Pragma': 'no-cache',
     'Expires': '0',
+    'X-Vercel-Cache': 'MISS',
   };
   
   try {
@@ -82,7 +86,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[API] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    const s = errorMessage.toString();
     return NextResponse.json(
       { 
         response: 'Sorry, I encountered an error. Please try again later.',
