@@ -309,15 +309,19 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     
     if (hasOpenAIKey && currentOpenAI) {
     try {
-      // Build product list for AI
+      // Build product list for AI (limit to prevent prompt from being too large)
       let productList = '';
       if (websiteData.products && websiteData.products.length > 0) {
         productList = '\n\nAvailable Products:\n';
-        websiteData.products.slice(0, 50).forEach((product: Product, index: number) => {
-          productList += `${index + 1}. ${product.name} - ${product.price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
+        // Limit to 30 products to keep prompt size manageable
+        const maxProducts = 30;
+        websiteData.products.slice(0, maxProducts).forEach((product: Product, index: number) => {
+          const name = (product.name || '').substring(0, 100); // Limit product name length
+          const price = product.price || 'Check website';
+          productList += `${index + 1}. ${name} - ${price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''}\n`;
         });
-        if (websiteData.products.length > 50) {
-          productList += `...and ${websiteData.products.length - 50} more products\n`;
+        if (websiteData.products.length > maxProducts) {
+          productList += `...and ${websiteData.products.length - maxProducts} more products\n`;
         }
       }
 
@@ -377,30 +381,47 @@ Generate a helpful, intelligent response based on the user's query and the live 
         throw new Error('OpenAI client not initialized');
       }
       
-      const completion = await Promise.race([
-        currentOpenAI.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            ...context.conversationHistory.slice(-10).map(msg => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.content,
-            })),
-            {
-              role: 'user',
-              content: message,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 1500,
-        }),
-        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('OpenAI API timeout')), 25000)) // 25 second timeout
-      ]);
+      console.log('[Chatbot] Calling OpenAI API with system prompt length:', systemPrompt.length);
+      let completion;
+      try {
+        completion = await Promise.race([
+          currentOpenAI.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: systemPrompt,
+              },
+              ...context.conversationHistory.slice(-10).map(msg => ({
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content,
+              })),
+              {
+                role: 'user',
+                content: message,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 1500,
+          }),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('OpenAI API timeout')), 25000)) // 25 second timeout
+        ]);
+        console.log('[Chatbot] OpenAI API call successful');
+      } catch (openaiError: any) {
+        console.error('[Chatbot] OpenAI API call failed:', openaiError);
+        console.error('[Chatbot] OpenAI error type:', openaiError?.constructor?.name);
+        console.error('[Chatbot] OpenAI error message:', openaiError?.message);
+        console.error('[Chatbot] OpenAI error status:', openaiError?.status);
+        console.error('[Chatbot] OpenAI error code:', openaiError?.code);
+        throw openaiError; // Re-throw to be caught by outer try-catch
+      }
 
-      let aiResponse = completion.choices[0]?.message?.content || '';
+      let aiResponse = completion?.choices?.[0]?.message?.content || '';
+      if (!aiResponse) {
+        console.warn('[Chatbot] OpenAI returned empty response');
+        throw new Error('OpenAI returned empty response');
+      }
+      console.log('[Chatbot] OpenAI response received, length:', aiResponse.length);
 
       // If user asks about products, ensure we have the data
       const lowerMessage = message.toLowerCase();
@@ -417,23 +438,30 @@ Generate a helpful, intelligent response based on the user's query and the live 
           throw new Error('OpenAI client not initialized');
         }
         
-        const enhancedCompletion = await currentOpenAI.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt + productsInfo,
-            },
-            {
-              role: 'user',
-              content: message,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 1500,
-        });
-
-        aiResponse = enhancedCompletion.choices[0]?.message?.content || aiResponse;
+        try {
+          const enhancedCompletion = await Promise.race([
+            currentOpenAI.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: systemPrompt + productsInfo,
+                },
+                {
+                  role: 'user',
+                  content: message,
+                },
+              ],
+              temperature: 0.7,
+              max_tokens: 1500,
+            }),
+            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('OpenAI API timeout')), 20000))
+          ]);
+          aiResponse = enhancedCompletion?.choices?.[0]?.message?.content || aiResponse;
+        } catch (error) {
+          console.warn('[Chatbot] Error in enhanced completion for "these/them", using original response:', error);
+          // Continue with original aiResponse
+        }
       }
       
       // Handle "this" or "it" - refers to lastProduct
@@ -467,23 +495,30 @@ Generate a helpful, intelligent response based on the user's query and the live 
           throw new Error('OpenAI client not initialized');
         }
         
-        const enhancedCompletion = await currentOpenAI.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt + productInfo,
-            },
-            {
-              role: 'user',
-              content: message,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 1500,
-        });
-
-        aiResponse = enhancedCompletion.choices[0]?.message?.content || aiResponse;
+        try {
+          const enhancedCompletion = await Promise.race([
+            currentOpenAI.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: systemPrompt + productInfo,
+                },
+                {
+                  role: 'user',
+                  content: message,
+                },
+              ],
+              temperature: 0.7,
+              max_tokens: 1500,
+            }),
+            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('OpenAI API timeout')), 20000))
+          ]);
+          aiResponse = enhancedCompletion?.choices?.[0]?.message?.content || aiResponse;
+        } catch (error) {
+          console.warn('[Chatbot] Error in enhanced completion for "this/it", using original response:', error);
+          // Continue with original aiResponse
+        }
       }
 
       // If user asks about sales/promotions, update context
@@ -497,11 +532,20 @@ Generate a helpful, intelligent response based on the user's query and the live 
       // Products are already searched and added to context above, so we don't need to search again
       
       // Format response with HTML links
-      const formattedResponse = formatResponseWithLinks(aiResponse, websiteData.products);
+      let formattedResponse: string;
+      try {
+        formattedResponse = formatResponseWithLinks(aiResponse, websiteData.products || []);
+        console.log('[Chatbot] Response formatted successfully, length:', formattedResponse.length);
+      } catch (formatError) {
+        console.error('[Chatbot] Error formatting response with links:', formatError);
+        // Use unformatted response if formatting fails
+        formattedResponse = aiResponse || 'I apologize, but I encountered an error formatting the response.';
+      }
 
       // Add assistant response to history
       context.conversationHistory.push({ role: 'assistant', content: formattedResponse });
 
+      console.log('[Chatbot] Returning response, length:', formattedResponse.length);
       return { response: formattedResponse };
       } catch (error) {
       console.error('[Chatbot] OpenAI error:', error instanceof Error ? error.message : String(error));
@@ -536,23 +580,44 @@ Generate a helpful, intelligent response based on the user's query and the live 
 }
 
 function formatResponseWithLinks(response: string, products: Product[]): string {
+  if (!response || typeof response !== 'string') {
+    console.warn('[Chatbot] formatResponseWithLinks: Invalid response input');
+    return 'I apologize, but I encountered an error formatting the response.';
+  }
+  
   let formatted = response;
   
-  // Add links to product mentions
-  products.forEach(product => {
-    const regex = new RegExp(`\\b${product.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    formatted = formatted.replace(regex, (match) => {
-      return `<a href="${product.url}" target="_blank">${match}</a>`;
-    });
-  });
-  
-  // Add links to common terms
-  formatted = formatted.replace(/Gtech website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">Gtech website</a>`);
-  formatted = formatted.replace(/our website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">our website</a>`);
-  formatted = formatted.replace(/Track My Order/gi, `<a href="${GTECH_BASE_URL}/track-my-order" target="_blank">Track My Order</a>`);
-  
-  // Convert line breaks to HTML
-  formatted = formatted.replace(/\n/g, '<br/>');
+  try {
+    // Add links to product mentions
+    if (products && Array.isArray(products)) {
+      products.forEach(product => {
+        try {
+          if (product && product.name && product.url) {
+            const escapedName = product.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+            formatted = formatted.replace(regex, (match) => {
+              return `<a href="${product.url}" target="_blank">${match}</a>`;
+            });
+          }
+        } catch (productError) {
+          console.warn('[Chatbot] Error processing product link:', productError);
+          // Continue with next product
+        }
+      });
+    }
+    
+    // Add links to common terms
+    formatted = formatted.replace(/Gtech website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">Gtech website</a>`);
+    formatted = formatted.replace(/our website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">our website</a>`);
+    formatted = formatted.replace(/Track My Order/gi, `<a href="${GTECH_BASE_URL}/track-my-order" target="_blank">Track My Order</a>`);
+    
+    // Convert line breaks to HTML
+    formatted = formatted.replace(/\n/g, '<br/>');
+  } catch (error) {
+    console.error('[Chatbot] Error in formatResponseWithLinks:', error);
+    // Return original response if formatting fails
+    return response.replace(/\n/g, '<br/>');
+  }
   
   return formatted;
 }
