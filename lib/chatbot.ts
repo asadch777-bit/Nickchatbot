@@ -8,7 +8,6 @@ import {
   Product
 } from './scraper';
 import OpenAI from 'openai';
-import { initializeRAG, getRAGContext, getProblemOptions } from './rag';
 
 // Initialize OpenAI client only if API key is available
 let openai: OpenAI | null = null;
@@ -157,7 +156,7 @@ export async function processChatMessage(message: string, sessionId: string = 'd
         // Product model found in the message - store it and continue with troubleshooting
         context.productModelNumber = productCodes[0];
         console.log('PROBLEM DETECTED with product model:', context.productModelNumber);
-        // Continue to normal flow - the AI will use the model number and RAG context to help troubleshoot
+        // Continue to normal flow - the AI will use the model number to help troubleshoot
       } else {
         // No product model found - the AI will naturally ask for it in the conversation
         console.log('PROBLEM DETECTED but no product model found - AI will ask naturally');
@@ -347,20 +346,12 @@ CRITICAL RULES:
 5. If user asks about ordering multiple products, explain how to order each one
 6. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
 7. If user asks "are there any sales?" or "is there a sale going on?", check hasSales flag and respond accordingly with actual sale products
-8. **CRITICAL: RAG Context Priority** - The RAG context (Product Information from Database section) contains authoritative product information from Products.csv. If RAG context is provided:
-   • ALWAYS use this information to answer product questions, even if the product is not in the "Available Products" list
-   • The RAG context contains detailed product specifications, features, FAQs, and troubleshooting information
-   • If a user asks about a product that appears in RAG context (e.g., "HT50", "LHT50", "GT50"), you MUST use that information to respond
-   • DO NOT say the product is not available if it appears in the RAG context - instead, provide the information from RAG context
-9. Combine RAG knowledge with live website data when discussing products, prices, or availability
-10. **Troubleshooting Help**: When a user reports a problem with a product:
-    • If a product model number is provided (check conversation history or productModelNumber in context), search for that product in RAG context
-    • Use the troubleshooting information from RAG context to provide specific, helpful solutions
+8. **Troubleshooting Help**: When a user reports a problem with a product:
+    • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
-    • Provide step-by-step troubleshooting guidance based on the product information
+    • Provide step-by-step troubleshooting guidance based on the product information available
     • Be conversational and helpful - guide the user through solutions naturally rather than showing options or lists
-    • If the product model is known, reference specific troubleshooting steps from the product database
-11. If RAG context shows product information but the product isn't in the live website data, still provide the information from RAG and note that live pricing/availability should be checked on the website
+    • Use general troubleshooting knowledge and product information from the website data
 
 Current website data:
 - Total products: ${websiteData.products.length}
