@@ -28,19 +28,8 @@ export default function ChatPopup() {
       {/* Chat Window */}
       {open && (
         <div className={styles.popupWindow}>
-          <div className={styles.popupHeader}>
-            Gtech Digital Assistant
-
-            <button
-              onClick={() => setOpen(false)}
-              className={styles.closeButton}
-            >
-              ✕
-            </button>
-          </div>
-
           <div className={styles.chatContent}>
-            <Chatbot />
+            <Chatbot onClose={() => setOpen(false)} />
           </div>
         </div>
       )}

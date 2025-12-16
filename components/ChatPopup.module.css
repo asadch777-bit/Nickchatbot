@@ -65,47 +65,7 @@
   z-index: 100000;
 }
 
-/* Header */
-.popupHeader {
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e5e7eb;
-  background-color: #f9fafb;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2937;
-  flex-shrink: 0;
-}
-
-.closeButton {
-  border: none;
-  background: none;
-  font-size: 22px;
-  cursor: pointer;
-  padding: 4px 8px;
-  min-width: 36px;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  border-radius: 50%;
-  color: #6b7280;
-  line-height: 1;
-}
-
-.closeButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: #1f2937;
-}
-
-.closeButton:active {
-  background-color: rgba(0, 0, 0, 0.1);
-}
+/* Header removed - now using green header from Chatbot component */
 
 /* Chat content area */
 .chatContent {
@@ -145,18 +105,15 @@
     max-height: 100%;
     border-radius: 0;
     box-shadow: none;
+    /* Ensure proper mobile viewport */
+    -webkit-overflow-scrolling: touch;
   }
 
-  .popupHeader {
-    padding: 12px 16px;
-    font-size: 14px;
+  .chatContent {
+    height: 100%;
+    overflow: hidden;
   }
 
-  .closeButton {
-    min-width: 40px;
-    min-height: 40px;
-    font-size: 20px;
-  }
 }
 
 /* Small Mobile Devices */
@@ -177,17 +134,6 @@
     margin-top: 4px;
   }
 
-  .popupHeader {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-
-  .closeButton {
-    min-width: 36px;
-    min-height: 36px;
-    font-size: 18px;
-    padding: 2px 6px;
-  }
 }
 
 /* Landscape Mobile */
