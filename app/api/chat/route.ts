@@ -5,6 +5,7 @@ import { processChatMessage } from '@/lib/chatbot';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
+export const revalidate = 0; // Never cache
 
 // Handle OPTIONS for CORS preflight
 export async function OPTIONS() {
@@ -21,11 +22,14 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   console.log('[API] POST handler called');
   
-  // CORS headers
+  // CORS headers and cache prevention
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
   };
   
   try {

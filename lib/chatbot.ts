@@ -12,16 +12,40 @@ import { initializeRAG, getRAGContext, getProblemOptions } from './rag';
 
 // Initialize OpenAI client only if API key is available
 let openai: OpenAI | null = null;
-const apiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY;
-if (apiKey) {
+
+// Function to get or initialize OpenAI client
+function getOpenAIClient(): OpenAI | null {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY;
+  
+  if (!apiKey) {
+    return null;
+  }
+  
+  // If client doesn't exist or was previously null, initialize it
+  if (!openai) {
+    try {
+      openai = new OpenAI({ apiKey });
+      console.log('[Chatbot] OpenAI client initialized');
+    } catch (error) {
+      console.error('[Chatbot] Error initializing OpenAI client:', error);
+      return null;
+    }
+  }
+  
+  return openai;
+}
+
+// Initialize on module load if key is available
+const initialApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY;
+if (initialApiKey) {
   try {
-    openai = new OpenAI({ apiKey });
-    console.log('[Chatbot] OpenAI client initialized');
+    openai = new OpenAI({ apiKey: initialApiKey });
+    console.log('[Chatbot] OpenAI client initialized on module load');
   } catch (error) {
-    console.error('[Chatbot] Error initializing OpenAI client:', error);
+    console.error('[Chatbot] Error initializing OpenAI client on module load:', error);
   }
 } else {
-  console.warn('[Chatbot] No OpenAI API key found. Chatbot will use fallback responses.');
+  console.warn('[Chatbot] No OpenAI API key found on module load. Will initialize when key becomes available.');
 }
 
 export interface ChatResponse {
@@ -278,10 +302,12 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     }
 
     // Use OpenAI to generate intelligent response
-    const hasOpenAIKey = !!openai && !!(process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY);
-    console.log('[Chatbot] Has OpenAI API Key:', hasOpenAIKey);
+    // Get or initialize OpenAI client (handles case where key was added after module load)
+    const currentOpenAI = getOpenAIClient();
+    const hasOpenAIKey = !!currentOpenAI && !!(process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY);
+    console.log('[Chatbot] Has OpenAI API Key:', hasOpenAIKey, 'Client initialized:', !!currentOpenAI);
     
-    if (hasOpenAIKey && openai) {
+    if (hasOpenAIKey && currentOpenAI) {
     try {
       // Build product list for AI
       let productList = '';
@@ -347,12 +373,12 @@ Support information:
 Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.`;
 
       // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
-      if (!openai) {
+      if (!currentOpenAI) {
         throw new Error('OpenAI client not initialized');
       }
       
       const completion = await Promise.race([
-        openai.chat.completions.create({
+        currentOpenAI.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
             {
@@ -387,11 +413,11 @@ Generate a helpful, intelligent response based on the user's query and the live 
           productsInfo += `${index + 1}. ${product.name} - ${product.price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
         });
 
-        if (!openai) {
+        if (!currentOpenAI) {
           throw new Error('OpenAI client not initialized');
         }
         
-        const enhancedCompletion = await openai.chat.completions.create({
+        const enhancedCompletion = await currentOpenAI.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
             {
@@ -437,11 +463,11 @@ Generate a helpful, intelligent response based on the user's query and the live 
           }
         }
 
-        if (!openai) {
+        if (!currentOpenAI) {
           throw new Error('OpenAI client not initialized');
         }
         
-        const enhancedCompletion = await openai.chat.completions.create({
+        const enhancedCompletion = await currentOpenAI.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
             {
