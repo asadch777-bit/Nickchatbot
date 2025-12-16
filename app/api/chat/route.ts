@@ -21,8 +21,28 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   console.log('[API] POST handler called');
   
+  // CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+  
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.error('[API] JSON parse error:', jsonError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
+    
     console.log('[API] Request body parsed:', { hasMessage: !!body.message, hasSessionId: !!body.sessionId });
     
     const { message, sessionId } = body;
@@ -31,7 +51,10 @@ export async function POST(request: NextRequest) {
       console.error('[API] Invalid message');
       return NextResponse.json(
         { error: 'Message is required' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -49,7 +72,9 @@ export async function POST(request: NextRequest) {
       throw processError;
     }
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: corsHeaders
+    });
   } catch (error) {
     console.error('[API] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -60,7 +85,10 @@ export async function POST(request: NextRequest) {
         error: process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error',
         showOptions: false
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }
@@ -69,5 +97,11 @@ export async function GET() {
   return NextResponse.json({
     message: 'Gtech Chatbot API - NICK',
     status: 'online'
+  }, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
   });
 }
