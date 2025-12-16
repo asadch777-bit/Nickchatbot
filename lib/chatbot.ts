@@ -234,11 +234,16 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       ]) as Product[];
       if (searchedProducts.length > 0) {
         console.log('[Chatbot] Found products from search:', searchedProducts.length);
+        searchedProducts.forEach((p, i) => {
+          console.log(`[Chatbot] Product ${i + 1}: ${p.name} - Price: ${p.price}`);
+        });
         if (searchedProducts.length === 1) {
           context.lastProduct = searchedProducts[0];
         } else {
           context.lastProducts = searchedProducts.slice(0, 10);
         }
+      } else {
+        console.log('[Chatbot] No products found for query:', message);
       }
     } catch (error) {
       console.warn('[Chatbot] Error searching products (non-fatal):', error instanceof Error ? error.message : String(error));
@@ -337,15 +342,16 @@ export async function processChatMessage(message: string, sessionId: string = 'd
 
 CRITICAL RULES:
 1. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
-2. Understand context perfectly:
+2. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
+3. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
    • If user asks "how to order these?", provide ordering steps for ALL products in lastProducts
-3. Always use live data from the website - prices, products, promotions are all fetched in real-time
-4. Be conversational and helpful - answer questions naturally based on the data provided
-5. If user asks about ordering multiple products, explain how to order each one
-6. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
-7. If user asks "are there any sales?" or "is there a sale going on?", check hasSales flag and respond accordingly with actual sale products
+4. Always use live data from the website - prices, products, promotions are all fetched in real-time
+5. Be conversational and helpful - answer questions naturally based on the data provided
+6. If user asks about ordering multiple products, explain how to order each one
+7. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
+8. If user asks "are there any sales?" or "is there a sale going on?", check hasSales flag and respond accordingly with actual sale products
 8. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
@@ -374,7 +380,13 @@ Support information:
 - 30-day guarantee
 - 2-year warranty
 
-Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.`;
+Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.
+
+**PRICE QUERIES**: When users ask about product prices (e.g., "what's the price of AirRAM 3" or "price of hair dryer"), you MUST:
+- Check the "Products Found from Query" section above - if products are listed there, ALWAYS include their prices in your response
+- Format prices clearly: "The [Product Name] is priced at [price]" or "[Product Name]: [price]"
+- If multiple products match, list all of them with their prices
+- NEVER say you can't provide the price if product data is available above`;
 
       // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
       if (!currentOpenAI) {
