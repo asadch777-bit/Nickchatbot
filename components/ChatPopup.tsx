@@ -19,8 +19,8 @@ export default function ChatPopup() {
       <Image 
         src="/NickP1.png" 
         alt="Nick" 
-        width={70}
-        height={70}
+        width={80}
+        height={80}
         className={styles.iconImage}
         priority
       />

@@ -21,8 +21,8 @@
 
 /* 🟢 Green circular chat icon with Nick's picture */
 .iconCircle {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   background: white;
   border-radius: 50%;
   display: flex;
@@ -31,7 +31,7 @@
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: transform 0.2s ease;
-  border: 12px solid #0aa06e; /* Thick green border like in the image */
+  border: 10px solid #0aa06e; /* Green border matching the image */
   padding: 0;
   position: relative;
 }
@@ -94,9 +94,9 @@
   }
 
   .iconCircle {
-    width: 60px;
-    height: 60px;
-    border-width: 10px;
+    width: 70px;
+    height: 70px;
+    border-width: 8px;
     padding: 0;
   }
   
@@ -140,15 +140,15 @@
   }
 
   .iconCircle {
-    width: 56px;
-    height: 56px;
-    border-width: 8px;
+    width: 64px;
+    height: 64px;
+    border-width: 1px;
     padding: 0;
   }
   
   .iconImage {
     width: 84%;
-    height: 111%;
+    height: 107%;
   }
 
   .chatLabel {
