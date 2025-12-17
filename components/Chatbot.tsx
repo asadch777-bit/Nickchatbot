@@ -318,7 +318,7 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
         <div className={styles.headerContent}>
           <div className={styles.avatar}>
             <Image 
-              src="/NickP1.png" 
+              src="/Nick.png" 
               alt="Nick Avatar" 
               width={60}
               height={60}
