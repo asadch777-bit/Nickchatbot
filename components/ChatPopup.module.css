@@ -19,7 +19,7 @@
   transform: scale(0.95);
 }
 
-/* 🟢 Green circular chat icon */
+/* 🟢 Green circular chat icon with Nick's picture */
 .iconCircle {
   width: 70px;
   height: 70px;
@@ -28,14 +28,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px; /* Chat icon size */
-  color: white;
+  overflow: hidden;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   transition: transform 0.2s ease;
+  border: 3px solid #0aa06e;
+  padding: 3px;
 }
 
 .iconCircle:hover {
   transform: scale(1.08);
+}
+
+.iconImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 /* ✏️ Text under the button */
@@ -86,7 +94,13 @@
   .iconCircle {
     width: 60px;
     height: 60px;
-    font-size: 28px;
+    border-width: 2.5px;
+    padding: 2.5px;
+  }
+  
+  .iconImage {
+    width: 100%;
+    height: 100%;
   }
 
   .chatLabel {
@@ -126,7 +140,13 @@
   .iconCircle {
     width: 56px;
     height: 56px;
-    font-size: 24px;
+    border-width: 2px;
+    padding: 2px;
+  }
+  
+  .iconImage {
+    width: 100%;
+    height: 100%;
   }
 
   .chatLabel {
