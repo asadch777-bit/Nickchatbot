@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Chatbot from './Chatbot';
 import styles from './ChatPopup.module.css';
 
@@ -14,16 +13,9 @@ export default function ChatPopup() {
       {!open && (
   <button onClick={() => setOpen(true)} className={styles.popupButton}>
     
-    {/* Green circle with Nick's picture */}
+    {/* Green circle with icon */}
     <div className={styles.iconCircle}>
-      <Image 
-        src="/NickP1.png" 
-        alt="Nick" 
-        width={80}
-        height={80}
-        className={styles.iconImage}
-        priority
-      />
+      💬
     </div>
 
     {/* Label under the circle */}
