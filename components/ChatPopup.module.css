@@ -23,16 +23,17 @@
 .iconCircle {
   width: 70px;
   height: 70px;
-  background: #0aa06e; /* GTech green */
+  background: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: transform 0.2s ease;
-  border: 3px solid #0aa06e;
-  padding: 3px;
+  border: 12px solid #0aa06e; /* Thick green border like in the image */
+  padding: 0;
+  position: relative;
 }
 
 .iconCircle:hover {
@@ -44,6 +45,7 @@
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+  display: block;
 }
 
 /* ✏️ Text under the button */
@@ -94,8 +96,8 @@
   .iconCircle {
     width: 60px;
     height: 60px;
-    border-width: 2.5px;
-    padding: 2.5px;
+    border-width: 10px;
+    padding: 0;
   }
   
   .iconImage {
@@ -140,8 +142,8 @@
   .iconCircle {
     width: 56px;
     height: 56px;
-    border-width: 2px;
-    padding: 2px;
+    border-width: 8px;
+    padding: 0;
   }
   
   .iconImage {
