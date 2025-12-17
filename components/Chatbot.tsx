@@ -24,7 +24,7 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hi! I'm NICK, your intelligent Gtech product assistant. I can help you with product information, pricing, sales, ordering, and more. All information is fetched live from our website. What would you like to know?",
+      content: "Hi! I'm NICK, your intelligent\nGtech product assistant. I can help\nyou with product information,\npricing, sales, ordering, and more.\nAll information is fetched live from\nour website. What would you like\nto know?",
       timestamp: new Date(),
     },
   ]);
