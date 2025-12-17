@@ -306,8 +306,13 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     // Add found products information to context
     if (searchedProducts.length > 0) {
       contextInfo += `\n--- Products Found from Query ---\n`;
+      contextInfo += `IMPORTANT: These products were found for the user's query. You MUST include their prices in your response.\n\n`;
       searchedProducts.forEach((product, index) => {
-        contextInfo += `${index + 1}. ${product.name} - ${product.price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''}\n`;
+        const priceInfo = product.price && product.price !== 'Check website for current price' 
+          ? product.price 
+          : 'Price available on product page';
+        contextInfo += `${index + 1}. ${product.name}\n`;
+        contextInfo += `   PRICE: ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''}\n`;
         if (product.description) contextInfo += `   Description: ${product.description.substring(0, 200)}\n`;
         if (product.specs && Object.keys(product.specs).length > 0) {
           contextInfo += `   Specs: ${Object.entries(product.specs).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ')}\n`;
@@ -315,6 +320,7 @@ export async function processChatMessage(message: string, sessionId: string = 'd
         contextInfo += `   URL: ${product.url}\n\n`;
       });
       contextInfo += `--- End of Found Products ---\n\n`;
+      contextInfo += `REMINDER: When the user asks about price, you MUST include the price information from the products listed above.\n\n`;
     }
     
     // RAG DISABLED - Add RAG context if available (this contains product information from CSV)
@@ -415,11 +421,14 @@ Support information:
 
 Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.
 
-**PRICE QUERIES**: When users ask about product prices (e.g., "what's the price of AirRAM 3" or "price of hair dryer"), you MUST:
-- Check the "Products Found from Query" section above - if products are listed there, ALWAYS include their prices in your response
-- Format prices clearly: "The [Product Name] is priced at [price]" or "[Product Name]: [price]"
-- If multiple products match, list all of them with their prices
-- NEVER say you can't provide the price if product data is available above`;
+**PRICE QUERIES - CRITICAL**: When users ask about product prices (e.g., "what's the price of AirRAM 3" or "price of hair dryer"), you MUST:
+- ALWAYS check the "Products Found from Query" section above FIRST
+- If ANY products are listed in "Products Found from Query", you MUST include their prices in your response
+- Format prices clearly at the START of your response: "The [Product Name] is priced at [price]" or "[Product Name]: [price]"
+- If the price shows "Check website for current price", say: "The current price for [Product Name] is available on the product page. You can check the latest price here: [URL]"
+- If multiple products match, list ALL of them with their prices
+- NEVER say "I can't provide the price" or "the price is not specified" - ALWAYS include the price information from the product data above
+- If product data exists above, the price information MUST be in your response`;
 
       // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
       if (!currentOpenAI) {
