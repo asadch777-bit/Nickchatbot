@@ -315,12 +315,20 @@ export async function processChatMessage(message: string, sessionId: string = 'd
         contextInfo += `   PRICE: ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''}\n`;
         if (product.description) contextInfo += `   Description: ${product.description.substring(0, 200)}\n`;
         if (product.specs && Object.keys(product.specs).length > 0) {
-          contextInfo += `   Specs: ${Object.entries(product.specs).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ')}\n`;
+          contextInfo += `   SPECIFICATIONS:\n`;
+          Object.entries(product.specs).forEach(([k, v]) => {
+            const specKey = k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            contextInfo += `      • ${specKey}: ${v}\n`;
+          });
+        }
+        if (product.features && product.features.length > 0) {
+          contextInfo += `   Features: ${product.features.slice(0, 5).join(', ')}\n`;
         }
         contextInfo += `   URL: ${product.url}\n\n`;
       });
       contextInfo += `--- End of Found Products ---\n\n`;
-      contextInfo += `REMINDER: When the user asks about price, you MUST include the price information from the products listed above.\n\n`;
+      contextInfo += `REMINDER: When the user asks about price, you MUST include the price information from the products listed above.\n`;
+      contextInfo += `REMINDER: When the user asks about specifications or specs, you MUST include ALL specifications from the products listed above if they are available.\n\n`;
     }
     
     // RAG DISABLED - Add RAG context if available (this contains product information from CSV)
@@ -381,7 +389,8 @@ export async function processChatMessage(message: string, sessionId: string = 'd
 CRITICAL RULES:
 1. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
 2. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
-3. **USE KNOWLEDGE BASE**: If "Knowledge Base Information" is provided above, use that information to answer questions. The knowledge base contains authoritative information about products, troubleshooting, FAQs, and support. Prioritize knowledge base information when available.
+3. **ALWAYS INCLUDE SPECIFICATIONS**: When a user asks about product specifications, specs, or features (e.g., "specifications of GT50" or "what are the specs"), you MUST include ALL specifications from the product data provided. If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response. NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them.
+4. **USE KNOWLEDGE BASE**: If "Knowledge Base Information" is provided above, use that information to answer questions. The knowledge base contains authoritative information about products, troubleshooting, FAQs, and support. Prioritize knowledge base information when available.
 4. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
@@ -428,7 +437,15 @@ Generate a helpful, intelligent response based on the user's query and the live 
 - If the price shows "Check website for current price", say: "The current price for [Product Name] is available on the product page. You can check the latest price here: [URL]"
 - If multiple products match, list ALL of them with their prices
 - NEVER say "I can't provide the price" or "the price is not specified" - ALWAYS include the price information from the product data above
-- If product data exists above, the price information MUST be in your response`;
+- If product data exists above, the price information MUST be in your response
+
+**SPECIFICATION QUERIES - CRITICAL**: When users ask about product specifications (e.g., "specifications of GT50" or "what are the specs of [product]"), you MUST:
+- ALWAYS check the "Products Found from Query" section above FIRST
+- If ANY products are listed with "SPECIFICATIONS:" in the product data, you MUST include ALL of them in your response
+- Format specifications clearly: List each specification on a new line or as a bullet point
+- If specifications are available in the product data, NEVER say "I don't have specifications" or "I can't provide specifications" - they are in the data, always include them
+- If multiple products match, provide specifications for ALL matching products
+- Include features if available in addition to specifications`;
 
       // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
       if (!currentOpenAI) {
