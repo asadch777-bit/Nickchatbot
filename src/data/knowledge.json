@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "question": "What is the warranty period?",
+    "answer": "All Gtech products come with a 2-year warranty and 30-day money-back guarantee."
+  },
+  {
+    "question": "How do I track my order?",
+    "answer": "You can track your order by visiting our website and using the 'Track My Order' feature, or contact our support team."
+  },
+  {
+    "question": "What is the delivery time?",
+    "answer": "We offer free delivery on all orders. Delivery times vary by location, typically 3-5 business days."
+  },
+  {
+    "question": "How do I return a product?",
+    "answer": "You can return any product within 30 days of purchase. Contact our support team at support@gtech.co.uk or call 08000 308 794 for assistance."
+  },
+  {
+    "question": "Do you offer customer support?",
+    "answer": "Yes! Our support team is available to help. Contact us at support@gtech.co.uk or call 08000 308 794."
+  }
+]

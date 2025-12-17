@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import styles from './Chatbot.module.css';
 
 interface Message {
@@ -316,7 +317,14 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
       <div className={styles.chatbotHeader}>
         <div className={styles.headerContent}>
           <div className={styles.avatar}>
-            <img src="/NickP1.png" alt="Nick Avatar" className={styles.avatarImage} />
+            <Image 
+              src="/NickP1.png" 
+              alt="Nick Avatar" 
+              width={60}
+              height={60}
+              className={styles.avatarImage}
+              priority
+            />
           </div>
           <div>
             <h2>NICK</h2>

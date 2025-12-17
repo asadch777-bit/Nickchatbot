@@ -3,8 +3,8 @@
   flex-direction: column;
   width: 100%;
   max-width: 800px;
-  height: auto;
-  max-height: 800px;
+  height: 100%;
+  /*max-height: 800px;*/
   background: white;
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -47,24 +47,26 @@
 }
 
 .avatar {
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 3px solid white;
-  background: none;
+  background: white;
   flex-shrink: 0;
   color: white;
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .avatarImage {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
 .headerContent h2 {
@@ -494,10 +496,11 @@
   }
 
   .avatar {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     flex-shrink: 0;
     border-width: 2.5px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   }
 
   .avatarImage {
@@ -613,9 +616,10 @@
   }
 
   .avatar {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-width: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .headerContent {
@@ -738,9 +742,10 @@
   }
 
   .avatar {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-width: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .headerContent h2 {
