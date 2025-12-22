@@ -498,19 +498,33 @@ Generate a helpful, intelligent response based on the user's query and the live 
       
       if (isSaleQuery && websiteData.sales && websiteData.sales.length > 0) {
         const validSaleProducts = websiteData.sales.filter((p: Product) => p && p.name && p.name.trim());
-        console.log(`[Chatbot] Direct sale query detected. Formatting response with all ${validSaleProducts.length} sale products`);
+        console.log(`[Chatbot] Direct sale query detected. Total sale products in websiteData: ${websiteData.sales.length}, Valid products with names: ${validSaleProducts.length}`);
+        console.log(`[Chatbot] Sale products:`, validSaleProducts.map((p: Product) => p.name));
+        
+        // Ensure we're using ALL products, not limiting
+        if (validSaleProducts.length === 0) {
+          console.warn(`[Chatbot] No valid sale products found after filtering!`);
+        }
         
         if (validSaleProducts.length > 0) {
-          let saleResponse = `Yes, there are sales currently happening! Here are all ${validSaleProducts.length} products on sale:\n\n`;
+          // Create a more natural, dynamic response
+          const productCount = validSaleProducts.length;
+          const saleResponseStart = productCount === 1 
+            ? `Yes, there is ${productCount} product on sale right now:`
+            : `Yes, there are ${productCount} products currently on sale:`;
+          
+          let saleResponse = `${saleResponseStart}\n\n`;
           
           validSaleProducts.forEach((product: Product, index: number) => {
             const priceInfo = product.price && product.price !== 'Check website for current price' 
               ? product.price 
               : 'Price available on product page';
+            // Format with proper line breaks - each product on its own line with spacing
+            // Put URL on same line as product info, it will be converted to link by formatResponseWithLinks
             saleResponse += `${index + 1}. ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n\n`;
           });
           
-          saleResponse += `If you need more information about any of these products or want to know how to order, just let me know!`;
+          saleResponse += `If you'd like more details about any of these products or help with ordering, feel free to ask!`;
           
           // Format with links
           const allProductsForLinks = [
@@ -817,6 +831,25 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
     formatted = formatted.replace(/Gtech website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">Gtech website</a>`);
     formatted = formatted.replace(/our website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">our website</a>`);
     formatted = formatted.replace(/Track My Order/gi, `<a href="${GTECH_BASE_URL}/track-my-order" target="_blank">Track My Order</a>`);
+    
+    // Convert plain URLs to clickable links (but skip if already inside an anchor tag)
+    const urlPattern = /(https?:\/\/[^\s<>"']+)/g;
+    formatted = formatted.replace(urlPattern, (url) => {
+      // Check if URL is already inside a link
+      const urlIndex = formatted.indexOf(url);
+      if (urlIndex === -1) return url;
+      
+      const textBeforeUrl = formatted.substring(0, urlIndex);
+      const lastOpenTag = textBeforeUrl.lastIndexOf('<a');
+      const lastCloseTag = textBeforeUrl.lastIndexOf('</a>');
+      
+      // If already inside a link, don't convert
+      if (lastOpenTag > lastCloseTag) {
+        return url;
+      }
+      
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    });
     
     // Convert line breaks to HTML
     formatted = formatted.replace(/\n/g, '<br/>');
