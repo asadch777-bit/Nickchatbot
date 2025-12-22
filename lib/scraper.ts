@@ -326,14 +326,14 @@ export async function fetchGtechProducts(): Promise<ProductData> {
           const priceText = $prod.find('[class*="price"], .price, [data-price]').first().text();
           const priceMatch = priceText.match(/£[\d,]+\.?\d*/g);
 
-          if (name && priceMatch && priceMatch.length > 0) {
+          if (name && name.trim().length >= 3 && priceMatch && priceMatch.length > 0) {
             const price = priceMatch[0];
             const originalPrice = priceMatch[1] || undefined;
             const link = $prod.find('a').first().attr('href');
             const productUrl = link?.startsWith('http') ? link : `${GTECH_BASE_URL}${link || ''}`;
 
             const promoProduct: Product = {
-              name,
+              name: name.trim(),
               price,
               originalPrice,
               description: $prod.find('[class*="description"], p').first().text().trim(),
@@ -364,10 +364,10 @@ export async function fetchGtechProducts(): Promise<ProductData> {
       products: uniqueProducts,
       categories: Array.from(categories),
       promotions: promotions.filter((p, index, self) =>
-        index === self.findIndex((prod) => prod.name.toLowerCase() === p.name.toLowerCase())
+        p && p.name && p.name.trim() && index === self.findIndex((prod) => prod.name.toLowerCase() === p.name.toLowerCase())
       ),
       sales: sales.filter((p, index, self) =>
-        index === self.findIndex((prod) => prod.name.toLowerCase() === p.name.toLowerCase())
+        p && p.name && p.name.trim() && index === self.findIndex((prod) => prod.name.toLowerCase() === p.name.toLowerCase())
       ),
       sections: Array.from(sections),
     };
@@ -429,8 +429,8 @@ export async function getComprehensiveWebsiteData(): Promise<WebsiteData> {
     };
   }
 
-  // Get products with original prices (on sale)
-  const saleProducts = (data.products || []).filter((p: Product) => p && p.originalPrice);
+  // Get products with original prices (on sale) - must have a name
+  const saleProducts = (data.products || []).filter((p: Product) => p && p.name && p.name.trim() && p.originalPrice);
 
   // Get black friday products - comprehensive check
   const blackFridayProducts = (data.products || []).filter((p: Product) => {

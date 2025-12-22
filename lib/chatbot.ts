@@ -345,6 +345,21 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     contextInfo += `- Total Black Friday Products: ${websiteData.blackFriday.length}\n`;
     contextInfo += `- Total Promotional Products: ${websiteData.promotions.length}\n\n`;
     
+    // Add all sale products to context if user asks about sales
+    if (websiteData.sales && websiteData.sales.length > 0) {
+      contextInfo += `--- All Products Currently on Sale ---\n`;
+      contextInfo += `IMPORTANT: When user asks "which products are on sale?" or "what products are on sale?", you MUST list ALL ${websiteData.sales.length} products below. Do NOT limit to 3 products - show ALL of them.\n\n`;
+      websiteData.sales.forEach((product: Product, index: number) => {
+        if (product && product.name && product.name.trim()) {
+          const priceInfo = product.price && product.price !== 'Check website for current price' 
+            ? product.price 
+            : 'Price available on product page';
+          contextInfo += `${index + 1}. ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
+        }
+      });
+      contextInfo += `--- End of Sale Products ---\n\n`;
+    }
+    
     if (context.lastProduct) {
       contextInfo += `Last product discussed: ${context.lastProduct.name} - Price: ${context.lastProduct.price}${context.lastProduct.originalPrice ? ` (was ${context.lastProduct.originalPrice})` : ''} - URL: ${context.lastProduct.url}\n`;
     }
@@ -399,7 +414,12 @@ CRITICAL RULES:
 5. Be conversational and helpful - answer questions naturally based on the data provided
 6. If user asks about ordering multiple products, explain how to order each one
 7. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
-8. If user asks "are there any sales?" or "is there a sale going on?", check hasSales flag and respond accordingly with actual sale products
+8. **SALE PRODUCTS QUERIES - CRITICAL**: When user asks "which products are on sale?" or "what products are on sale?" or "show me sale products":
+   - You MUST list ALL sale products from the "All Products Currently on Sale" section above
+   - Do NOT limit to 3 products - show ALL sale products that are listed
+   - Each product MUST include: Product Name, Current Price, Original Price (if available), and URL
+   - If a product doesn't have a name, skip it and don't include it in the list
+   - Format: "1. [Product Name] - [Current Price] (was [Original Price]) - [URL]"
 8. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
