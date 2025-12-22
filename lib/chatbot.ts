@@ -285,7 +285,9 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     
     // Add knowledge base information if found
     if (knowledgeResults.length > 0) {
-      contextInfo += `\n--- Knowledge Base Information ---\n`;
+      contextInfo += `\n--- Knowledge Base Information (from knowledge.json) ---\n`;
+      contextInfo += `IMPORTANT: This is general information from the knowledge base. You MUST ALSO use the Website Data section below for current prices, product availability, sales, specifications, and live information scraped from gtech.co.uk.\n`;
+      contextInfo += `Use BOTH sources together - Knowledge Base for general info/FAQs, Website Data for current prices and live product information.\n\n`;
       knowledgeResults.forEach((kbItem, index) => {
         const kbText = Object.entries(kbItem)
           .map(([key, value]) => {
@@ -301,9 +303,10 @@ export async function processChatMessage(message: string, sessionId: string = 'd
         contextInfo += `${index + 1}. ${kbText}\n\n`;
       });
       contextInfo += `--- End of Knowledge Base ---\n\n`;
+      contextInfo += `REMINDER: Above is Knowledge Base info. Below is LIVE Website Data scraped from gtech.co.uk. Use BOTH sources in your response.\n\n`;
     }
     
-    // Add found products information to context
+    // Add found products information to context (from website scraping)
     if (searchedProducts.length > 0) {
       contextInfo += `\n--- Products Found from Query ---\n`;
       contextInfo += `IMPORTANT: These products were found for the user's query. You MUST include their prices in your response.\n\n`;
@@ -337,7 +340,9 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     //   contextInfo += `\n--- Product Information from Database (RAG) ---\n${ragContext}\n--- End of RAG Context ---\n\n`;
     // }
     
-    // Add sales information
+    // Add sales information (from website scraping)
+    contextInfo += `\n--- LIVE Website Data (Scraped from gtech.co.uk) ---\n`;
+    contextInfo += `This data is scraped live from the website and includes current prices, products, sales, and specifications.\n`;
     contextInfo += `Current Sales Status:\n`;
     contextInfo += `- Has Sales: ${websiteData.hasSales}\n`;
     contextInfo += `- Has Black Friday: ${websiteData.hasBlackFriday}\n`;
@@ -414,7 +419,19 @@ CRITICAL RULES:
 1. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
 2. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
 3. **ALWAYS INCLUDE SPECIFICATIONS**: When a user asks about product specifications, specs, or features (e.g., "specifications of GT50" or "what are the specs"), you MUST include ALL specifications from the product data provided. If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response. NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them.
-4. **USE KNOWLEDGE BASE**: If "Knowledge Base Information" is provided above, use that information to answer questions. The knowledge base contains authoritative information about products, troubleshooting, FAQs, and support. Prioritize knowledge base information when available.
+4. **USE BOTH KNOWLEDGE BASE AND WEBSITE DATA**: 
+   - You have access to TWO sources of information:
+     a) Knowledge Base Information (from knowledge.json) - contains FAQs, troubleshooting guides, and general product information
+     b) Website Data (scraped live from gtech.co.uk) - contains current products, prices, sales, specifications, and real-time information
+   - You MUST use BOTH sources together to provide complete answers
+   - When answering questions:
+     • Use Knowledge Base for general information, FAQs, and troubleshooting steps
+     • Use Website Data for current prices, product availability, sales, specifications, and live product information
+     • COMBINE information from both sources - don't rely on just one
+     • If Knowledge Base has general info and Website Data has specific product details, include BOTH
+     • Website Data is LIVE and current - always use it for prices, sales, and product availability
+     • Knowledge Base is for general guidance - use it for FAQs and troubleshooting
+   - NEVER ignore Website Data in favor of only Knowledge Base - they complement each other
 4. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
