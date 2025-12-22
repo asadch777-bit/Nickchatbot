@@ -431,6 +431,12 @@ export async function getComprehensiveWebsiteData(): Promise<WebsiteData> {
 
   // Get products with original prices (on sale) - must have a name
   const saleProducts = (data.products || []).filter((p: Product) => p && p.name && p.name.trim() && p.originalPrice);
+  console.log(`[Scraper] Found ${saleProducts.length} sale products with valid names out of ${(data.products || []).filter((p: Product) => p && p.originalPrice).length} total products with originalPrice`);
+  if (saleProducts.length > 0) {
+    saleProducts.forEach((p, idx) => {
+      console.log(`[Scraper] Sale product ${idx + 1}: ${p.name} - ${p.price} (was ${p.originalPrice})`);
+    });
+  }
 
   // Get black friday products - comprehensive check
   const blackFridayProducts = (data.products || []).filter((p: Product) => {

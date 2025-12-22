@@ -345,19 +345,28 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     contextInfo += `- Total Black Friday Products: ${websiteData.blackFriday.length}\n`;
     contextInfo += `- Total Promotional Products: ${websiteData.promotions.length}\n\n`;
     
-    // Add all sale products to context if user asks about sales
+    // Always add all sale products to context (not just when user asks about sales)
     if (websiteData.sales && websiteData.sales.length > 0) {
-      contextInfo += `--- All Products Currently on Sale ---\n`;
-      contextInfo += `IMPORTANT: When user asks "which products are on sale?" or "what products are on sale?", you MUST list ALL ${websiteData.sales.length} products below. Do NOT limit to 3 products - show ALL of them.\n\n`;
-      websiteData.sales.forEach((product: Product, index: number) => {
-        if (product && product.name && product.name.trim()) {
-          const priceInfo = product.price && product.price !== 'Check website for current price' 
-            ? product.price 
-            : 'Price available on product page';
-          contextInfo += `${index + 1}. ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
-        }
+      const validSaleProducts = websiteData.sales.filter((p: Product) => p && p.name && p.name.trim());
+      console.log(`[Chatbot] Total sale products: ${websiteData.sales.length}, Valid sale products with names: ${validSaleProducts.length}`);
+      
+      contextInfo += `--- All Products Currently on Sale (${validSaleProducts.length} products) ---\n`;
+      contextInfo += `\n🚨 CRITICAL INSTRUCTION - READ CAREFULLY 🚨\n`;
+      contextInfo += `When user asks about sales (ANY variation: "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?"):\n`;
+      contextInfo += `1. Count the products in the list below: There are EXACTLY ${validSaleProducts.length} products\n`;
+      contextInfo += `2. You MUST list ALL ${validSaleProducts.length} products in your response\n`;
+      contextInfo += `3. Do NOT stop at 3 products - continue until you have listed all ${validSaleProducts.length} products\n`;
+      contextInfo += `4. Your response must include product numbers 1 through ${validSaleProducts.length}\n`;
+      contextInfo += `5. If you list fewer than ${validSaleProducts.length} products, your response is INCORRECT\n\n`;
+      contextInfo += `PRODUCT LIST (${validSaleProducts.length} products total):\n\n`;
+      validSaleProducts.forEach((product: Product, index: number) => {
+        const priceInfo = product.price && product.price !== 'Check website for current price' 
+          ? product.price 
+          : 'Price available on product page';
+        contextInfo += `PRODUCT ${index + 1} of ${validSaleProducts.length}: ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
       });
-      contextInfo += `--- End of Sale Products ---\n\n`;
+      contextInfo += `\n--- End of Sale Products (Total: ${validSaleProducts.length} products) ---\n\n`;
+      contextInfo += `FINAL REMINDER: You must list all ${validSaleProducts.length} products above. The count is ${validSaleProducts.length}, not 3. List all ${validSaleProducts.length} products.\n\n`;
     }
     
     if (context.lastProduct) {
@@ -414,12 +423,18 @@ CRITICAL RULES:
 5. Be conversational and helpful - answer questions naturally based on the data provided
 6. If user asks about ordering multiple products, explain how to order each one
 7. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
-8. **SALE PRODUCTS QUERIES - CRITICAL**: When user asks "which products are on sale?" or "what products are on sale?" or "show me sale products":
-   - You MUST list ALL sale products from the "All Products Currently on Sale" section above
-   - Do NOT limit to 3 products - show ALL sale products that are listed
+8. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
+   - When user asks ANY question about sales (e.g., "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?"):
+   - You MUST look at the "All Products Currently on Sale" section above and count how many products are listed
+   - You MUST list EVERY SINGLE product from that section - ALL of them, not just 3
+   - If the section says "Total: X products", you MUST list ALL X products
+   - Do NOT stop at 3 products - continue listing until you have listed ALL products from the section
    - Each product MUST include: Product Name, Current Price, Original Price (if available), and URL
-   - If a product doesn't have a name, skip it and don't include it in the list
    - Format: "1. [Product Name] - [Current Price] (was [Original Price]) - [URL]"
+   - If you see "Total: 5 products" in the section, you MUST list all 5 products
+   - If you see "Total: 3 products" in the section, list all 3 products
+   - The number of products you list MUST match the total number shown in the "All Products Currently on Sale" section
+   - EXAMPLE: If the section shows "Total: 5 products" and lists PRODUCT 1, PRODUCT 2, PRODUCT 3, PRODUCT 4, PRODUCT 5, your response MUST include all 5 products numbered 1 through 5
 8. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
