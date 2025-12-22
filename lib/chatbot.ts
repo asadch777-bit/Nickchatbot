@@ -488,7 +488,7 @@ Generate a helpful, intelligent response based on the user's query and the live 
       }
       
       // Check if user is asking about sales - if so, format response directly with all sale products
-      const lowerMessage = message.toLowerCase();
+      // lowerMessage already declared in outer scope at line 91
       const isSaleQuery = lowerMessage.includes('sale') || lowerMessage.includes('promotion') || 
                          lowerMessage.includes('discount') || lowerMessage.includes('deal') ||
                          lowerMessage.includes('which products are on sale') || 
@@ -581,7 +581,7 @@ Generate a helpful, intelligent response based on the user's query and the live 
       console.log('[Chatbot] OpenAI response received, length:', aiResponse.length);
 
       // If user asks about products, ensure we have the data
-      const lowerMessage = message.toLowerCase();
+      // lowerMessage already declared above
       
       // Handle "these" or "them" - refers to lastProducts
       if ((lowerMessage.includes('these') || lowerMessage.includes('them')) && context.lastProducts && context.lastProducts.length > 0) {
