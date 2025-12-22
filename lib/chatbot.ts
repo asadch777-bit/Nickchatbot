@@ -487,6 +487,57 @@ Generate a helpful, intelligent response based on the user's query and the live 
         throw new Error('OpenAI client not initialized');
       }
       
+      // Check if user is asking about sales - if so, format response directly with all sale products
+      const lowerMessage = message.toLowerCase();
+      const isSaleQuery = lowerMessage.includes('sale') || lowerMessage.includes('promotion') || 
+                         lowerMessage.includes('discount') || lowerMessage.includes('deal') ||
+                         lowerMessage.includes('which products are on sale') || 
+                         lowerMessage.includes('what products are on sale') ||
+                         lowerMessage.includes('show me sale products') ||
+                         lowerMessage.includes('are there any sales');
+      
+      if (isSaleQuery && websiteData.sales && websiteData.sales.length > 0) {
+        const validSaleProducts = websiteData.sales.filter((p: Product) => p && p.name && p.name.trim());
+        console.log(`[Chatbot] Direct sale query detected. Formatting response with all ${validSaleProducts.length} sale products`);
+        
+        if (validSaleProducts.length > 0) {
+          let saleResponse = `Yes, there are sales currently happening! Here are all ${validSaleProducts.length} products on sale:\n\n`;
+          
+          validSaleProducts.forEach((product: Product, index: number) => {
+            const priceInfo = product.price && product.price !== 'Check website for current price' 
+              ? product.price 
+              : 'Price available on product page';
+            saleResponse += `${index + 1}. ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n\n`;
+          });
+          
+          saleResponse += `If you need more information about any of these products or want to know how to order, just let me know!`;
+          
+          // Format with links
+          const allProductsForLinks = [
+            ...(websiteData.products || []),
+            ...(websiteData.sales || []),
+            ...(websiteData.promotions || [])
+          ];
+          const uniqueProductsForLinks = allProductsForLinks.filter((product, index, self) =>
+            index === self.findIndex((p) => p.url === product.url)
+          );
+          
+          let formattedResponse: string;
+          try {
+            formattedResponse = formatResponseWithLinks(saleResponse, uniqueProductsForLinks);
+            console.log('[Chatbot] Sale response formatted successfully');
+          } catch (formatError) {
+            console.error('[Chatbot] Error formatting sale response with links:', formatError);
+            formattedResponse = saleResponse.replace(/\n/g, '<br/>');
+          }
+          
+          // Add assistant response to history
+          context.conversationHistory.push({ role: 'assistant', content: formattedResponse });
+          
+          return { response: formattedResponse };
+        }
+      }
+
       console.log('[Chatbot] Calling OpenAI API with system prompt length:', systemPrompt.length);
       let completion;
       try {
