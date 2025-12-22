@@ -638,9 +638,20 @@ Generate a helpful, intelligent response based on the user's query and the live 
       // Products are already searched and added to context above, so we don't need to search again
       
       // Format response with HTML links
+      // Include all products (regular + sale products) for link formatting
+      const allProductsForLinks = [
+        ...(websiteData.products || []),
+        ...(websiteData.sales || []),
+        ...(websiteData.promotions || [])
+      ];
+      // Remove duplicates based on URL
+      const uniqueProductsForLinks = allProductsForLinks.filter((product, index, self) =>
+        index === self.findIndex((p) => p.url === product.url)
+      );
+      
       let formattedResponse: string;
       try {
-        formattedResponse = formatResponseWithLinks(aiResponse, websiteData.products || []);
+        formattedResponse = formatResponseWithLinks(aiResponse, uniqueProductsForLinks);
         console.log('[Chatbot] Response formatted successfully, length:', formattedResponse.length);
       } catch (formatError) {
         console.error('[Chatbot] Error formatting response with links:', formatError);
@@ -696,14 +707,53 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
   try {
     // Add links to product mentions
     if (products && Array.isArray(products)) {
-      products.forEach(product => {
+      // Sort products by name length (longest first) to match longer names first
+      // This prevents shorter product names from matching parts of longer names
+      const sortedProducts = [...products].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
+      
+      sortedProducts.forEach(product => {
         try {
           if (product && product.name && product.url) {
             const escapedName = product.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Use word boundaries for exact match, case-insensitive
             const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-            formatted = formatted.replace(regex, (match) => {
-              return `<a href="${product.url}" target="_blank">${match}</a>`;
-            });
+            
+            // Replace all occurrences, but skip if already inside a link
+            // We need to process manually to get the offset
+            let result = '';
+            let lastIndex = 0;
+            let match;
+            
+            // Reset regex lastIndex
+            regex.lastIndex = 0;
+            
+            while ((match = regex.exec(formatted)) !== null) {
+              const matchIndex = match.index;
+              const matchText = match[0];
+              
+              // Add text before the match
+              result += formatted.substring(lastIndex, matchIndex);
+              
+              // Check if this match is already inside an anchor tag
+              const textBeforeMatch = formatted.substring(0, matchIndex);
+              const lastOpenTag = textBeforeMatch.lastIndexOf('<a');
+              const lastCloseTag = textBeforeMatch.lastIndexOf('</a>');
+              
+              // If there's an open tag after the last close tag, we're inside a link
+              if (lastOpenTag > lastCloseTag) {
+                // Already inside a link, don't replace
+                result += matchText;
+              } else {
+                // Replace with link
+                result += `<a href="${product.url}" target="_blank" rel="noopener noreferrer">${matchText}</a>`;
+              }
+              
+              lastIndex = matchIndex + matchText.length;
+            }
+            
+            // Add remaining text
+            result += formatted.substring(lastIndex);
+            formatted = result;
           }
         } catch (productError) {
           console.warn('[Chatbot] Error processing product link:', productError);
