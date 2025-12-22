@@ -448,8 +448,16 @@ CRITICAL RULES:
    - Do NOT stop at 3 products - continue listing until you have listed ALL products from the section
    - Each product MUST include: Product Name, Current Price, Original Price (if available), and URL
    - Format: "1. [Product Name] - [Current Price] (was [Original Price]) - [URL]"
+   - CRITICAL: Each product MUST be on a separate line with a blank line between products
+   - Format example:
+     1. Product Name 1 - £100 (was £150) - https://url1.com
+     
+     2. Product Name 2 - £200 (was £250) - https://url2.com
+     
+     3. Product Name 3 - £300 (was £350) - https://url3.com
    - IMPORTANT: Do NOT add "View Product" text or markdown links like [View Product](url) - just include the URL directly
    - Do NOT use HTML tags or markdown formatting - use plain text with URLs
+   - ALWAYS add a blank line (double line break) after each product URL before the next product number
    - If you see "Total: 5 products" in the section, you MUST list all 5 products
    - If you see "Total: 3 products" in the section, list all 3 products
    - The number of products you list MUST match the total number shown in the "All Products Currently on Sale" section
@@ -807,6 +815,13 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
       
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
     });
+    
+    // Ensure proper line breaks before product numbers (fix cases where URL runs into next product number)
+    // Fix pattern like ".html2." or ".html 2." to ".html\n\n2."
+    formatted = formatted.replace(/(\.html)(\d+\.)/g, '$1\n\n$2');
+    formatted = formatted.replace(/(\.html)\s+(\d+\.)/g, '$1\n\n$2');
+    // Ensure double line breaks between numbered items
+    formatted = formatted.replace(/(\d+\.\s+[^\n]+)\n(\d+\.)/g, '$1\n\n$2');
     
     // Convert line breaks to HTML
     formatted = formatted.replace(/\n/g, '<br/>');
