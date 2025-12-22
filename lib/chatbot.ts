@@ -487,70 +487,8 @@ Generate a helpful, intelligent response based on the user's query and the live 
         throw new Error('OpenAI client not initialized');
       }
       
-      // Check if user is asking about sales - if so, format response directly with all sale products
-      // lowerMessage already declared in outer scope at line 91
-      const isSaleQuery = lowerMessage.includes('sale') || lowerMessage.includes('promotion') || 
-                         lowerMessage.includes('discount') || lowerMessage.includes('deal') ||
-                         lowerMessage.includes('which products are on sale') || 
-                         lowerMessage.includes('what products are on sale') ||
-                         lowerMessage.includes('show me sale products') ||
-                         lowerMessage.includes('are there any sales');
-      
-      if (isSaleQuery && websiteData.sales && websiteData.sales.length > 0) {
-        const validSaleProducts = websiteData.sales.filter((p: Product) => p && p.name && p.name.trim());
-        console.log(`[Chatbot] Direct sale query detected. Total sale products in websiteData: ${websiteData.sales.length}, Valid products with names: ${validSaleProducts.length}`);
-        console.log(`[Chatbot] Sale products:`, validSaleProducts.map((p: Product) => p.name));
-        
-        // Ensure we're using ALL products, not limiting
-        if (validSaleProducts.length === 0) {
-          console.warn(`[Chatbot] No valid sale products found after filtering!`);
-        }
-        
-        if (validSaleProducts.length > 0) {
-          // Create a more natural, dynamic response
-          const productCount = validSaleProducts.length;
-          const saleResponseStart = productCount === 1 
-            ? `Yes, there is ${productCount} product on sale right now:`
-            : `Yes, there are ${productCount} products currently on sale:`;
-          
-          let saleResponse = `${saleResponseStart}\n\n`;
-          
-          validSaleProducts.forEach((product: Product, index: number) => {
-            const priceInfo = product.price && product.price !== 'Check website for current price' 
-              ? product.price 
-              : 'Price available on product page';
-            // Format with proper line breaks - each product on its own line with spacing
-            // Put URL on same line as product info, it will be converted to link by formatResponseWithLinks
-            saleResponse += `${index + 1}. ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n\n`;
-          });
-          
-          saleResponse += `If you'd like more details about any of these products or help with ordering, feel free to ask!`;
-          
-          // Format with links
-          const allProductsForLinks = [
-            ...(websiteData.products || []),
-            ...(websiteData.sales || []),
-            ...(websiteData.promotions || [])
-          ];
-          const uniqueProductsForLinks = allProductsForLinks.filter((product, index, self) =>
-            index === self.findIndex((p) => p.url === product.url)
-          );
-          
-          let formattedResponse: string;
-          try {
-            formattedResponse = formatResponseWithLinks(saleResponse, uniqueProductsForLinks);
-            console.log('[Chatbot] Sale response formatted successfully');
-          } catch (formatError) {
-            console.error('[Chatbot] Error formatting sale response with links:', formatError);
-            formattedResponse = saleResponse.replace(/\n/g, '<br/>');
-          }
-          
-          // Add assistant response to history
-          context.conversationHistory.push({ role: 'assistant', content: formattedResponse });
-          
-          return { response: formattedResponse };
-        }
-      }
+      // Let the AI handle sale queries naturally - no hardcoded responses
+      // The AI will use the sale products context provided below to generate natural responses
 
       console.log('[Chatbot] Calling OpenAI API with system prompt length:', systemPrompt.length);
       let completion;
