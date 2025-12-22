@@ -196,15 +196,34 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
       html = html.replace(placeholder, linkHtml);
     });
 
+    // Step 6.5: Remove any remaining EXISTING_LINK placeholders that weren't in the array
+    // This handles cases where the API returns these placeholders as plain text
+    html = html.replace(/__EXISTING_LINK_\d+__/g, '');
+
     // Step 7: Replace break placeholders back to <br> tags
     existingBreaks.forEach(({ placeholder, html: breakHtml }) => {
       html = html.replace(placeholder, breakHtml);
     });
 
+    // Step 7.5: Remove any remaining BR_TAG placeholders that weren't in the array
+    html = html.replace(/__BR_TAG_\d+__/g, '');
+
     // Step 8: Replace bold placeholders back to <strong> tags
     existingBold.forEach(({ placeholder, html: boldHtml }) => {
       html = html.replace(placeholder, boldHtml);
     });
+
+    // Step 8.5: Remove any remaining BOLD_TAG placeholders that weren't in the array
+    html = html.replace(/__BOLD_TAG_\d+__/g, '');
+
+    // Step 8.6: Clean up any trailing dashes or extra whitespace left after removing placeholders
+    // Remove standalone dashes with whitespace (e.g., " - " or " -<br>" or "<br> - ")
+    html = html.replace(/\s*-\s*(<br>|$)/g, '$1');
+    html = html.replace(/(<br>|^)\s*-\s*/g, '$1');
+    // Remove multiple consecutive line breaks
+    html = html.replace(/(<br>\s*){3,}/g, '<br><br>');
+    // Clean up any remaining placeholder-like patterns that might have been missed
+    html = html.replace(/__[A-Z_]+_\d+__/g, '');
 
     // Step 9: Replace newlines with <br> tags (only if not already a break)
     html = html.replace(/\n/g, '<br>');
