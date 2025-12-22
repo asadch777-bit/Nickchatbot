@@ -431,6 +431,8 @@ CRITICAL RULES:
    - Do NOT stop at 3 products - continue listing until you have listed ALL products from the section
    - Each product MUST include: Product Name, Current Price, Original Price (if available), and URL
    - Format: "1. [Product Name] - [Current Price] (was [Original Price]) - [URL]"
+   - IMPORTANT: Do NOT add "View Product" text or markdown links like [View Product](url) - just include the URL directly
+   - Do NOT use HTML tags or markdown formatting - use plain text with URLs
    - If you see "Total: 5 products" in the section, you MUST list all 5 products
    - If you see "Total: 3 products" in the section, list all 3 products
    - The number of products you list MUST match the total number shown in the "All Products Currently on Sale" section

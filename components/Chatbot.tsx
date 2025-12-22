@@ -225,6 +225,35 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     // Clean up any remaining placeholder-like patterns that might have been missed
     html = html.replace(/__[A-Z_]+_\d+__/g, '');
 
+    // Step 8.7: Clean up broken HTML fragments (exposed HTML attributes)
+    // Remove any exposed HTML attributes that appear as plain text
+    // This handles cases where HTML attributes leak into the visible text
+    
+    // First, protect valid HTML tags by temporarily replacing them
+    const validTags: Array<{ placeholder: string; html: string }> = [];
+    let tagIndex = 0;
+    html = html.replace(/<a\s+[^>]*>.*?<\/a>/gi, (match) => {
+      const placeholder = `__VALID_TAG_${tagIndex++}__`;
+      validTags.push({ placeholder, html: match });
+      return placeholder;
+    });
+    
+    // Now remove broken HTML fragments from the unprotected text
+    html = html.replace(/\s*target="_blank"\s*/gi, '');
+    html = html.replace(/\s*rel="noopener noreferrer"\s*/gi, '');
+    html = html.replace(/\s*style="[^"]*"\s*/gi, '');
+    html = html.replace(/\s*">\s*View Product/gi, '');
+    html = html.replace(/\s*">\s*View\s*/gi, '');
+    html = html.replace(/\s*">\s*/g, ' ');
+    html = html.replace(/<a\s*>/gi, '');
+    html = html.replace(/<\/a>\s*\(/g, ' (');
+    html = html.replace(/\)\s*<\/a>/g, ')');
+    
+    // Restore valid HTML tags
+    validTags.forEach(({ placeholder, html: tagHtml }) => {
+      html = html.replace(placeholder, tagHtml);
+    });
+
     // Step 9: Replace newlines with <br> tags (only if not already a break)
     html = html.replace(/\n/g, '<br>');
 
