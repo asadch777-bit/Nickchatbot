@@ -53,8 +53,8 @@
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: 380px;
-  height: 520px;
+  width: 500px;
+  height: 700px;
   max-height: calc(100vh - 40px);
   background: #ffffff;
   border-radius: 18px;
