@@ -361,7 +361,6 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
 
   return (
     <div className={styles.chatbotContainer}>
-      
       <div className={styles.chatbotHeader}>
         <div className={styles.headerContent}>
           <div className={styles.avatar}>

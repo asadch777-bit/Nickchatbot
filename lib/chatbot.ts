@@ -1,9 +1,7 @@
 import { 
   searchProducts, 
-  getProductByName, 
   getRelatedProducts, 
   getComprehensiveWebsiteData,
-  fetchGtechProducts,
   fetchProductDetails,
   Product
 } from './scraper';
@@ -35,18 +33,6 @@ function getOpenAIClient(): OpenAI | null {
   return openai;
 }
 
-// Initialize on module load if key is available
-const initialApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY;
-if (initialApiKey) {
-  try {
-    openai = new OpenAI({ apiKey: initialApiKey });
-    console.log('[Chatbot] OpenAI client initialized on module load');
-  } catch (error) {
-    console.error('[Chatbot] Error initializing OpenAI client on module load:', error);
-  }
-} else {
-  console.warn('[Chatbot] No OpenAI API key found on module load. Will initialize when key becomes available.');
-}
 
 export interface ChatResponse {
   response: string;
@@ -63,6 +49,22 @@ const GTECH_BASE_URL = 'https://www.gtech.co.uk';
 const SUPPORT_EMAIL = 'support@gtech.co.uk';
 const SUPPORT_PHONE = '08000 308 794';
 
+// Category page URLs mapping
+const CATEGORY_URLS: Record<string, string> = {
+  'power tools': `${GTECH_BASE_URL}/products/power-tools`,
+  'power tool': `${GTECH_BASE_URL}/products/power-tools`,
+  'garden tools': `${GTECH_BASE_URL}/products/garden-tools`,
+  'garden tool': `${GTECH_BASE_URL}/products/garden-tools`,
+  'floorcare': `${GTECH_BASE_URL}/products/floorcare`,
+  'floor care': `${GTECH_BASE_URL}/products/floorcare`,
+  'hair care': `${GTECH_BASE_URL}/products/hair-care`,
+  'haircare': `${GTECH_BASE_URL}/products/hair-care`,
+  'vacuum': `${GTECH_BASE_URL}/products/floorcare`,
+  'drill': `${GTECH_BASE_URL}/products/power-tools`,
+  'mower': `${GTECH_BASE_URL}/products/garden-tools`,
+  'trimmer': `${GTECH_BASE_URL}/products/garden-tools`,
+};
+
 // Store conversation context
 const conversationContext = new Map<string, { 
   lastProduct?: Product; 
@@ -76,7 +78,6 @@ const conversationContext = new Map<string, {
 
 export async function processChatMessage(message: string, sessionId: string = 'default'): Promise<ChatResponse> {
   try {
-    console.log('[Chatbot] Processing message:', message.substring(0, 50));
     // Get or create conversation context
     let context = conversationContext.get(sessionId);
     if (!context) {
@@ -91,8 +92,6 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     const lowerMessage = message.toLowerCase();
     const problemKeywords = ['not working', 'broken', 'not starting', 'not turning on', 'stopped working', 'malfunction', 'issue', 'problem', 'faulty', 'defective'];
     const isProblemReport = problemKeywords.some(keyword => lowerMessage.includes(keyword));
-    
-    console.log('Message:', message, '| isProblemReport:', isProblemReport); // Debug log
 
     // Check if user selected an option (starts with action: prefix)
     if (message.startsWith('action:')) {
@@ -163,8 +162,6 @@ export async function processChatMessage(message: string, sessionId: string = 'd
         console.log('PROBLEM DETECTED but no product model found - AI will ask naturally');
       }
     }
-    
-    console.log('Not a problem report or action - continuing to AI response'); // Debug log
 
     // Fetch live data from website with timeout protection for Vercel
     let websiteData: any;
@@ -209,23 +206,6 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       };
     }
     
-    // RAG DISABLED - Initialize RAG on first use (this will extract problem options from CSV)
-    // Make RAG initialization non-blocking - don't fail if it errors
-    // RAG is currently disabled
-    /*
-    try {
-      await Promise.race([
-        initializeRAG(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('RAG initialization timeout')), 5000))
-      ]).catch((error) => {
-        console.warn('[Chatbot] RAG initialization failed or timed out (non-fatal):', error instanceof Error ? error.message : String(error));
-      });
-    } catch (error) {
-      console.warn('[Chatbot] Error initializing RAG (non-fatal):', error instanceof Error ? error.message : String(error));
-    }
-    */
-    console.log('[Chatbot] RAG is disabled');
-    
     // Search for products FIRST so we can include them in the context
     let searchedProducts: Product[] = [];
     try {
@@ -233,49 +213,49 @@ export async function processChatMessage(message: string, sessionId: string = 'd
         searchProducts(message),
         new Promise<Product[]>((resolve) => setTimeout(() => resolve([]), 5000))
       ]) as Product[];
+      
+      // Fetch full product details for products that don't have prices or have incomplete data
       if (searchedProducts.length > 0) {
-        console.log('[Chatbot] Found products from search:', searchedProducts.length);
-        searchedProducts.forEach((p, i) => {
-          console.log(`[Chatbot] Product ${i + 1}: ${p.name} - Price: ${p.price}`);
-        });
+        await Promise.all(
+          searchedProducts.map(async (product) => {
+            // If product doesn't have a price or has placeholder price, fetch full details
+            if (!product.price || 
+                product.price === 'Check website for current price' || 
+                product.price === 'Check website' ||
+                !product.specs && product.url && product.url !== GTECH_BASE_URL) {
+              try {
+                const fullDetails = await Promise.race([
+                  fetchProductDetails(product.url),
+                  new Promise<Product | null>((resolve) => setTimeout(() => resolve(null), 5000))
+                ]);
+                if (fullDetails) {
+                  // Merge full details into product, prioritizing fetched price
+                  Object.assign(product, {
+                    ...fullDetails,
+                    price: fullDetails.price !== 'Check website for current price' ? fullDetails.price : product.price,
+                  });
+                }
+              } catch (error) {
+                // Silently continue if fetch fails
+              }
+            }
+          })
+        );
+        
         if (searchedProducts.length === 1) {
           context.lastProduct = searchedProducts[0];
         } else {
           context.lastProducts = searchedProducts.slice(0, 10);
         }
-      } else {
-        console.log('[Chatbot] No products found for query:', message);
       }
     } catch (error) {
       console.warn('[Chatbot] Error searching products (non-fatal):', error instanceof Error ? error.message : String(error));
     }
 
-    // RAG DISABLED - Get RAG context for the query (especially for product queries)
-    // Make this non-blocking as well
-    // RAG is currently disabled
-    let ragContext = '';
-    /*
-    try {
-      ragContext = await Promise.race([
-        getRAGContext(message),
-        new Promise<string>((resolve) => setTimeout(() => resolve(''), 3000))
-      ]) as string;
-      if (ragContext) {
-        console.log('[Chatbot] Retrieved RAG context for query:', ragContext.substring(0, 200));
-      }
-    } catch (error) {
-      console.warn('[Chatbot] Error retrieving RAG context (non-fatal):', error instanceof Error ? error.message : String(error));
-    }
-    */
-    console.log('[Chatbot] RAG context retrieval is disabled');
-    
     // Search knowledge base for relevant information
     let knowledgeResults: any[] = [];
     try {
       knowledgeResults = searchKnowledge(message, 5);
-      if (knowledgeResults.length > 0) {
-        console.log('[Chatbot] Found knowledge base results:', knowledgeResults.length);
-      }
     } catch (error) {
       console.warn('[Chatbot] Error searching knowledge base (non-fatal):', error instanceof Error ? error.message : String(error));
     }
@@ -334,12 +314,6 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       contextInfo += `REMINDER: When the user asks about specifications or specs, you MUST include ALL specifications from the products listed above if they are available.\n\n`;
     }
     
-    // RAG DISABLED - Add RAG context if available (this contains product information from CSV)
-    // RAG is currently disabled
-    // if (ragContext) {
-    //   contextInfo += `\n--- Product Information from Database (RAG) ---\n${ragContext}\n--- End of RAG Context ---\n\n`;
-    // }
-    
     // Add sales information (from website scraping)
     contextInfo += `\n--- LIVE Website Data (Scraped from gtech.co.uk) ---\n`;
     contextInfo += `This data is scraped live from the website and includes current prices, products, sales, and specifications.\n`;
@@ -353,7 +327,6 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     // Always add all sale products to context (not just when user asks about sales)
     if (websiteData.sales && websiteData.sales.length > 0) {
       const validSaleProducts = websiteData.sales.filter((p: Product) => p && p.name && p.name.trim());
-      console.log(`[Chatbot] Total sale products: ${websiteData.sales.length}, Valid sale products with names: ${validSaleProducts.length}`);
       
       contextInfo += `--- All Products Currently on Sale (${validSaleProducts.length} products) ---\n`;
       contextInfo += `\n🚨 CRITICAL INSTRUCTION - READ CAREFULLY 🚨\n`;
@@ -393,20 +366,20 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     // Get or initialize OpenAI client (handles case where key was added after module load)
     const currentOpenAI = getOpenAIClient();
     const hasOpenAIKey = !!currentOpenAI && !!(process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY);
-    console.log('[Chatbot] Has OpenAI API Key:', hasOpenAIKey, 'Client initialized:', !!currentOpenAI);
     
     if (hasOpenAIKey && currentOpenAI) {
     try {
       // Build product list for AI (limit to prevent prompt from being too large)
       let productList = '';
       if (websiteData.products && websiteData.products.length > 0) {
-        productList = '\n\nAvailable Products:\n';
-        // Limit to 30 products to keep prompt size manageable
-        const maxProducts = 30;
+        productList = '\n\nAvailable Products (with categories for filtering):\n';
+        // Limit to 50 products to keep prompt size manageable but allow for category filtering
+        const maxProducts = 50;
         websiteData.products.slice(0, maxProducts).forEach((product: Product, index: number) => {
           const name = (product.name || '').substring(0, 100); // Limit product name length
           const price = product.price || 'Check website';
-          productList += `${index + 1}. ${name} - ${price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''}\n`;
+          const category = product.category || 'General';
+          productList += `${index + 1}. ${name} - ${price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - Category: ${category}\n`;
         });
         if (websiteData.products.length > maxProducts) {
           productList += `...and ${websiteData.products.length - maxProducts} more products\n`;
@@ -416,7 +389,12 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       const systemPrompt = `You are NICK, an intelligent Gtech product assistant. You help customers with product information, pricing, ordering, and support.
 
 CRITICAL RULES:
-1. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
+1. **ALWAYS USE FIRST-PERSON LANGUAGE**: You represent Gtech, so ALWAYS use "we", "our", "us" when referring to Gtech. NEVER use "they", "their", "them" when talking about Gtech. For example:
+   - ✅ CORRECT: "We offer a 2-year warranty on our products"
+   - ❌ WRONG: "They offer a 2-year warranty on their products"
+   - ✅ CORRECT: "You can contact our customer service"
+   - ❌ WRONG: "You can contact their customer service"
+2. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
 2. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
 3. **ALWAYS INCLUDE SPECIFICATIONS**: When a user asks about product specifications, specs, or features (e.g., "specifications of GT50" or "what are the specs"), you MUST include ALL specifications from the product data provided. If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response. NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them.
 4. **USE BOTH KNOWLEDGE BASE AND WEBSITE DATA**: 
@@ -432,15 +410,32 @@ CRITICAL RULES:
      • Website Data is LIVE and current - always use it for prices, sales, and product availability
      • Knowledge Base is for general guidance - use it for FAQs and troubleshooting
    - NEVER ignore Website Data in favor of only Knowledge Base - they complement each other
-4. Understand context perfectly:
+5. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
    • If user asks "how to order these?", provide ordering steps for ALL products in lastProducts
-4. Always use live data from the website - prices, products, promotions are all fetched in real-time
-5. Be conversational and helpful - answer questions naturally based on the data provided
-6. If user asks about ordering multiple products, explain how to order each one
-7. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
-8. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
+6. Always use live data from the website - prices, products, promotions are all fetched in real-time
+7. Be conversational and helpful - answer questions naturally based on the data provided
+8. If user asks about ordering multiple products, explain how to order each one
+9. **CATEGORY QUERIES - CRITICAL**: When users ask about a product category (e.g., "power tools", "garden tools", "floorcare", "hair care", "vacuum", "drill", "mower", "trimmer", etc.) OR ask for a category link (e.g., "give me the link", "what's the URL", "link to hair care"):
+   - Provide a brief, friendly response acknowledging the category
+   - ALWAYS include the FULL category page URL in your response - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
+   - CRITICAL: When providing category links, you MUST use the complete full URL starting with "https://www.gtech.co.uk/products/"
+   - NEVER use partial URLs, relative paths, or text like "products/hair-care" - ALWAYS use the complete URL
+   - Format examples (COPY THESE EXACT FORMATS - DO NOT MODIFY):
+     For "hair care" category: "You can browse all our hair care products here: https://www.gtech.co.uk/products/hair-care"
+     For "power tools" category: "You can browse all our power tools here: https://www.gtech.co.uk/products/power-tools"
+   - When user explicitly asks for a link (e.g., "give me the link", "what's the URL", "link to hair care"), respond EXACTLY like this:
+     For hair care: "Of course! Here's the link to our hair care category: https://www.gtech.co.uk/products/hair-care"
+     For power tools: "Of course! Here's the link to our power tools category: https://www.gtech.co.uk/products/power-tools"
+   - CRITICAL: The URL MUST be complete - it MUST end with the category name (e.g., "/hair-care", "/power-tools")
+   - NEVER output "https://www.gtech.co.uk/products/" without the category name - this is WRONG
+   - The CORRECT format is: "https://www.gtech.co.uk/products/hair-care" (with "/hair-care" at the end)
+   - The WRONG format is: "https://www.gtech.co.uk/products/" (missing the category name)
+   - Keep the response concise and helpful - DO NOT list all products in detail
+   - DO NOT ask "which product are you interested in?" - instead direct them to the category page and ask for model number/product name
+11. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
+12. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
    - When user asks ANY question about sales (e.g., "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?"):
    - You MUST look at the "All Products Currently on Sale" section above and count how many products are listed
    - You MUST list EVERY SINGLE product from that section - ALL of them, not just 3
@@ -466,7 +461,7 @@ CRITICAL RULES:
    - If you see "Total: 3 products" in the section, list all 3 products
    - The number of products you list MUST match the total number shown in the "All Products Currently on Sale" section
    - EXAMPLE: If the section shows "Total: 5 products" and lists PRODUCT 1, PRODUCT 2, PRODUCT 3, PRODUCT 4, PRODUCT 5, your response MUST include all 5 products numbered 1 through 5
-8. **Troubleshooting Help**: When a user reports a problem with a product:
+13. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
     • Provide step-by-step troubleshooting guidance based on the product information available
@@ -496,6 +491,22 @@ Support information:
 
 Generate a helpful, intelligent response based on the user's query and the live data. Understand context perfectly - if user says "these", refer to the lastProducts list.
 
+**CATEGORY PAGE URLS - CRITICAL - YOU MUST USE THESE EXACT COMPLETE URLs**:
+When users ask about categories or request category links, you MUST use these EXACT complete URLs (copy them exactly as shown):
+
+For "hair care" or "haircare" → USE THIS EXACT URL: https://www.gtech.co.uk/products/hair-care
+For "power tools" → USE THIS EXACT URL: https://www.gtech.co.uk/products/power-tools
+For "garden tools" → USE THIS EXACT URL: https://www.gtech.co.uk/products/garden-tools
+For "floorcare" or "floor care" → USE THIS EXACT URL: https://www.gtech.co.uk/products/floorcare
+
+CRITICAL RULES - READ CAREFULLY:
+1. ALWAYS include the COMPLETE URL path - the full URL must end with the category name (e.g., "/hair-care", "/power-tools")
+2. NEVER stop at "/products/" - you MUST include the category name after "/products/"
+3. NEVER use "https://www.gtech.co.uk/products/" alone - it MUST be followed by the category name
+4. The complete URL for hair care is: https://www.gtech.co.uk/products/hair-care (NOT https://www.gtech.co.uk/products/)
+5. Copy the URLs exactly as shown above - do NOT modify, shorten, or truncate them
+6. The URL will be automatically converted to a clickable link, so just include the full complete URL as plain text
+
 **PRICE QUERIES - CRITICAL**: When users ask about product prices (e.g., "what's the price of AirRAM 3" or "price of hair dryer"), you MUST:
 - ALWAYS check the "Products Found from Query" section above FIRST
 - If ANY products are listed in "Products Found from Query", you MUST include their prices in your response
@@ -513,15 +524,9 @@ Generate a helpful, intelligent response based on the user's query and the live 
 - If multiple products match, provide specifications for ALL matching products
 - Include features if available in addition to specifications`;
 
-      // Add timeout protection for OpenAI API calls (Vercel has function timeouts)
-      if (!currentOpenAI) {
-        throw new Error('OpenAI client not initialized');
-      }
-      
       // Let the AI handle sale queries naturally - no hardcoded responses
       // The AI will use the sale products context provided below to generate natural responses
 
-      console.log('[Chatbot] Calling OpenAI API with system prompt length:', systemPrompt.length);
       let completion;
       try {
         completion = await Promise.race([
@@ -546,7 +551,6 @@ Generate a helpful, intelligent response based on the user's query and the live 
           }),
           new Promise<any>((_, reject) => setTimeout(() => reject(new Error('OpenAI API timeout')), 25000)) // 25 second timeout
         ]);
-        console.log('[Chatbot] OpenAI API call successful');
       } catch (openaiError: any) {
         console.error('[Chatbot] OpenAI API call failed:', openaiError);
         console.error('[Chatbot] OpenAI error type:', openaiError?.constructor?.name);
@@ -561,7 +565,6 @@ Generate a helpful, intelligent response based on the user's query and the live 
         console.warn('[Chatbot] OpenAI returned empty response');
         throw new Error('OpenAI returned empty response');
       }
-      console.log('[Chatbot] OpenAI response received, length:', aiResponse.length);
 
       // If user asks about products, ensure we have the data
       // lowerMessage already declared above
@@ -573,10 +576,6 @@ Generate a helpful, intelligent response based on the user's query and the live 
         context.lastProducts.forEach((product, index) => {
           productsInfo += `${index + 1}. ${product.name} - ${product.price}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
         });
-
-        if (!currentOpenAI) {
-          throw new Error('OpenAI client not initialized');
-        }
         
         try {
           const enhancedCompletion = await Promise.race([
@@ -630,10 +629,6 @@ Generate a helpful, intelligent response based on the user's query and the live 
             productInfo += `Specs: ${Object.entries(product.specs).map(([k, v]) => `${k}: ${v}`).join(', ')}\n`;
           }
         }
-
-        if (!currentOpenAI) {
-          throw new Error('OpenAI client not initialized');
-        }
         
         try {
           const enhancedCompletion = await Promise.race([
@@ -686,7 +681,6 @@ Generate a helpful, intelligent response based on the user's query and the live 
       let formattedResponse: string;
       try {
         formattedResponse = formatResponseWithLinks(aiResponse, uniqueProductsForLinks);
-        console.log('[Chatbot] Response formatted successfully, length:', formattedResponse.length);
       } catch (formatError) {
         console.error('[Chatbot] Error formatting response with links:', formatError);
         // Use unformatted response if formatting fails
@@ -696,15 +690,12 @@ Generate a helpful, intelligent response based on the user's query and the live 
       // Add assistant response to history
       context.conversationHistory.push({ role: 'assistant', content: formattedResponse });
 
-      console.log('[Chatbot] Returning response, length:', formattedResponse.length);
       return { response: formattedResponse };
       } catch (error) {
       console.error('[Chatbot] OpenAI error:', error instanceof Error ? error.message : String(error));
       console.error('[Chatbot] OpenAI error details:', error);
       // Fallback to intelligent data-based response
     }
-    } else {
-      console.log('[Chatbot] No OpenAI API key, using fallback response');
     }
 
     // Fallback: Intelligent response based on live data (no OpenAI)
@@ -796,12 +787,13 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
       });
     }
     
-    // Add links to common terms
+    // Add links to common terms and category pages
     formatted = formatted.replace(/Gtech website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">Gtech website</a>`);
     formatted = formatted.replace(/our website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">our website</a>`);
     formatted = formatted.replace(/Track My Order/gi, `<a href="${GTECH_BASE_URL}/track-my-order" target="_blank">Track My Order</a>`);
     
-    // Convert plain URLs to clickable links (but skip if already inside an anchor tag)
+    // Convert ALL plain URLs to clickable links FIRST (before any other processing)
+    // This ensures all URLs including category pages are converted
     const urlPattern = /(https?:\/\/[^\s<>"']+)/g;
     formatted = formatted.replace(urlPattern, (url) => {
       // Check if URL is already inside a link
@@ -817,7 +809,17 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
         return url;
       }
       
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      // Remove trailing punctuation that shouldn't be part of the URL
+      let cleanUrl = url;
+      let trailing = '';
+      const trailingPunct = /([.,!?;:])(?=\s|$)/;
+      const punctMatch = url.match(trailingPunct);
+      if (punctMatch && !url.endsWith('/')) {
+        trailing = punctMatch[1];
+        cleanUrl = url.slice(0, -1);
+      }
+      
+      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
     });
     
     // Ensure proper line breaks before product numbers (fix cases where URL runs into next product number)

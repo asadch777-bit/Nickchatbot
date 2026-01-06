@@ -6,7 +6,6 @@ export default function Home() {
     <main className={styles.main}>
       <div className={styles.container}>
         <div className={styles.header}>
-        {/*  <h1 className={styles.title}>Welcome to Gtech</h1>*/}
           <p className={styles.subtitle}>
             Chat with NICK, your intelligent product assistant
           </p>

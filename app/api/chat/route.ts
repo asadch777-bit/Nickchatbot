@@ -21,8 +21,6 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[API] POST handler called');
-  
   // CORS headers and aggressive cache prevention for Vercel
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -51,8 +49,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('[API] Request body parsed:', { hasMessage: !!body.message, hasSessionId: !!body.sessionId });
-    
     const { message, sessionId } = body;
 
     if (!message || typeof message !== 'string') {
@@ -65,18 +61,12 @@ export async function POST(request: NextRequest) {
         }
       );
     }
-
-    console.log('[API] Processing message:', message.substring(0, 50));
     
     let response;
     try {
       response = await processChatMessage(message, sessionId || 'default');
-      console.log('[API] Response generated successfully, returning...');
     } catch (processError) {
       console.error('[API] Error in processChatMessage:', processError);
-      console.error('[API] Error type:', processError instanceof Error ? processError.constructor.name : typeof processError);
-      console.error('[API] Error message:', processError instanceof Error ? processError.message : String(processError));
-      console.error('[API] Error stack:', processError instanceof Error ? processError.stack : 'No stack trace');
       throw processError;
     }
 
@@ -86,7 +76,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[API] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const s = errorMessage.toString();
     return NextResponse.json(
       { 
         response: 'Sorry, I encountered an error. Please try again later.',

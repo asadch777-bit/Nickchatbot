@@ -11,19 +11,15 @@ export default function ChatPopup() {
     <>
       {/* Floating Button */}
       {!open && (
-  <button onClick={() => setOpen(true)} className={styles.popupButton}>
-    
-    {/* Green circle with icon */}
-    <div className={styles.iconCircle}>
-      💬
-    </div>
-
-    {/* Label under the circle */}
-    <span className={styles.chatLabel}>Chat with us</span>
-
-  </button>
-)}
-
+        <button onClick={() => setOpen(true)} className={styles.popupButton}>
+          {/* Green circle with icon */}
+          <div className={styles.iconCircle}>
+            💬
+          </div>
+          {/* Label under the circle */}
+          <span className={styles.chatLabel}>Chat with us</span>
+        </button>
+      )}
 
       {/* Chat Window */}
       {open && (

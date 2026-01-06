@@ -11,7 +11,6 @@ export default function Widget() {
     useEffect(() => {
         // Check if device is mobile
         const checkMobile = () => {
-            // TODO css media query
             setIsMobile(window.innerWidth < 768);
         };
 

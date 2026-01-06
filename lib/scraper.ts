@@ -373,10 +373,6 @@ export async function fetchGtechProducts(): Promise<ProductData> {
     };
     cacheTimestamp = Date.now();
 
-    console.log(`✅ Extracted ${uniqueProducts.length} products from Gtech website`);
-    console.log(`✅ Found ${promotions.length} promotional products`);
-    console.log(`✅ Found ${sales.length} products on sale`);
-    console.log(`✅ Sales detected: ${salesInfo.hasSales}, Black Friday: ${salesInfo.hasBlackFriday}`);
 
     return productsCache;
   } catch (error: any) {
@@ -431,12 +427,6 @@ export async function getComprehensiveWebsiteData(): Promise<WebsiteData> {
 
   // Get products with original prices (on sale) - must have a name
   const saleProducts = (data.products || []).filter((p: Product) => p && p.name && p.name.trim() && p.originalPrice);
-  console.log(`[Scraper] Found ${saleProducts.length} sale products with valid names out of ${(data.products || []).filter((p: Product) => p && p.originalPrice).length} total products with originalPrice`);
-  if (saleProducts.length > 0) {
-    saleProducts.forEach((p, idx) => {
-      console.log(`[Scraper] Sale product ${idx + 1}: ${p.name} - ${p.price} (was ${p.originalPrice})`);
-    });
-  }
 
   // Get black friday products - comprehensive check
   const blackFridayProducts = (data.products || []).filter((p: Product) => {
@@ -657,7 +647,9 @@ export async function searchProducts(query: string): Promise<Product[]> {
       'lawnmower': '/products/garden-tools/cordless-lawn-mowers',
       'hedge trimmer': '/products/garden-tools/cordless-hedge-trimmers',
       'ht50': '/products/garden-tools/cordless-hedge-trimmers/ht50',
-      'lht50': '/products/garden-tools/cordless-hedge-trimmers/lht50',
+      'lht50': '/lightweight-hedge-trimmer-lht50',
+      'gt50': '/products/garden-tools/grass-trimmers/gt50',
+      'grass trimmer': '/products/garden-tools/grass-trimmers',
     };
 
     for (const [key, url] of Object.entries(productSlugs)) {
@@ -703,7 +695,7 @@ export async function getProductByName(name: string): Promise<Product | null> {
       'lawnmower clm50': '/products/garden-tools/cordless-lawn-mowers/clm50',
       'hedge trimmer ht50': '/products/garden-tools/cordless-hedge-trimmers/ht50',
       'ht50': '/products/garden-tools/cordless-hedge-trimmers/ht50',
-      'lht50': '/products/garden-tools/cordless-hedge-trimmers/lht50',
+      'lht50': '/lightweight-hedge-trimmer-lht50',
       'gt50': '/products/garden-tools/grass-trimmers/gt50',
     };
 
