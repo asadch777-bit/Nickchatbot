@@ -57,38 +57,81 @@ async function extractProductsFromPage(url: string, isPromotional: boolean = fal
     const seenProducts = new Set<string>();
 
     // Method 1: Extract from product cards/items
-    $('[class*="product"], article, [data-product], [class*="item"], [class*="card"]').each((index, element) => {
+    // For offers page, also look for products in list items and product listings
+    const productSelectors = isPromotional && url.includes('offers') 
+      ? '[class*="product"], article, [data-product], [class*="item"], [class*="card"], li[class*="product"], div[class*="product-item"]'
+      : '[class*="product"], article, [data-product], [class*="item"], [class*="card"]';
+    
+    $(productSelectors).each((index, element) => {
       const $el = $(element);
       extractProductFromElement($el, $, products, seenProducts, isPromotional, url);
     });
 
     // Method 2: Extract from links to product pages
-    $('a[href*="/product"], a[href*="/products"], a[href*="/p/"]').each((index, element) => {
+    // Filter out non-product links
+    const excludedPaths = ['newsletter', 'signup', 'search', 'login', 'register', 'track', 'support', 'contact', 'about', 'blog', 'faq', 'delivery', 'returns', 'warranty', 'privacy', 'terms', 'cookie'];
+    const excludedNames = ['search', 'sign up', 'login', 'register', 'track', 'support', 'contact', 'about', 'blog', 'faq', 'delivery', 'returns', 'warranty', 'privacy', 'terms', 'cookie', 'basket', 'cart', 'checkout'];
+    
+    // Also look for product links with .html extension (like system-platinum.html, airram-platinum.html)
+    $('a[href*="/product"], a[href*="/products"], a[href*="/p/"], a[href$=".html"]').each((index, element) => {
       const $el = $(element);
       const href = $el.attr('href');
-      if (href && !href.includes('#') && !href.includes('javascript:') && !href.includes('mailto:')) {
-        const productUrl = href.startsWith('http') ? href : `${GTECH_BASE_URL}${href}`;
-        const name = $el.find('h1, h2, h3, h4, [class*="name"], [class*="title"], [class*="product-name"]').first().text().trim() || 
-                     $el.text().trim().split('\n')[0].trim();
-        
-        if (name && name.length > 3 && !seenProducts.has(name.toLowerCase())) {
-          const priceText = $el.closest('[class*="product"], article, div, section').find('[class*="price"], .price, [data-price]').first().text() || 
-                           $el.find('[class*="price"], .price').first().text();
-          const priceMatch = priceText.match(/£[\d,]+\.?\d*/g);
-          const price = priceMatch ? priceMatch[0] : 'Check website for current price';
-          const originalPrice = priceMatch && priceMatch.length > 1 ? priceMatch[1] : undefined;
-          
-          products.push({
-            name,
-            price,
-            originalPrice,
-            description: $el.find('[class*="description"], p').first().text().trim(),
-            category: isPromotional ? 'Promotions' : 'General',
-            url: productUrl,
-          });
-          seenProducts.add(name.toLowerCase());
+      if (!href || href.includes('#') || href.includes('javascript:') || href.includes('mailto:')) return;
+      
+      // Skip excluded paths
+      const hrefLower = href.toLowerCase();
+      if (excludedPaths.some(path => hrefLower.includes(path))) return;
+      
+      const productUrl = href.startsWith('http') ? href : `${GTECH_BASE_URL}${href}`;
+      const name = $el.find('h1, h2, h3, h4, [class*="name"], [class*="title"], [class*="product-name"]').first().text().trim() || 
+                   $el.text().trim().split('\n')[0].trim();
+      
+      // Validate product name - must be meaningful and not a navigation element
+      if (!name || name.length < 3) return;
+      const nameLower = name.toLowerCase().trim();
+      if (excludedNames.some(excluded => nameLower === excluded || nameLower.includes(excluded))) return;
+      if (seenProducts.has(nameLower)) return;
+      
+      // Only include if it looks like a product name (has letters, not just numbers/symbols)
+      if (!/[a-zA-Z]{3,}/.test(name)) return;
+      
+      const priceText = $el.closest('[class*="product"], article, div, section').find('[class*="price"], .price, [data-price]').first().text() || 
+                       $el.find('[class*="price"], .price').first().text();
+      const priceMatch = priceText.match(/£[\d,]+\.?\d*/g);
+      const price = priceMatch ? priceMatch[0] : 'Check website for current price';
+      const originalPrice = priceMatch && priceMatch.length > 1 ? priceMatch[1] : undefined;
+      
+      // For offers page, only include products that have BOTH price and originalPrice (indicating they're on sale)
+      // Skip products without prices or without originalPrice
+      if (price === 'Check website for current price' || !originalPrice) {
+        // For offers page, skip products without both price and originalPrice
+        if (isPromotional && url.includes('offers')) {
+          return; // Skip products from offers page that don't have sale prices
+        } else if (!href.includes('.html') && !href.match(/\/[a-z-]+\/[a-z-]+$/) && !href.match(/\/[a-z-]+\.html$/)) {
+          return; // Skip if no price and doesn't look like a product URL
         }
       }
+      
+      // Additional filtering for offers page - exclude category pages and navigation
+      if (isPromotional && url.includes('offers')) {
+        // Exclude category page URLs
+        const categoryPaths = ['/uprights.html', '/sticks.html', '/handhelds.html', '/cordless-wet-and-dry-vacuums.html', '/drills-and-drivers.html', '/work-lights.html', '/lawnmowers.html', '/grass-trimmers.html', '/hedge-trimmers.html', '/hair-dryers.html', '/hair-straighteners.html', '/hair-care-bundles.html'];
+        if (categoryPaths.some(path => href.includes(path))) return;
+        
+        // Exclude if name is a category name
+        const categoryNames = ['floorcare', 'power tools', 'garden tools', 'hair care', 'cordless upright vacuums', 'cordless stick vacuum cleaners', 'wet and dry vacuums', 'cordless handheld vacuums', 'cordless carpet sweepers', 'cordless drills & drivers', 'work lights', 'cordless lawn mowers', 'cordless grass trimmers', 'cordless hedge trimmers', 'hair dryers', 'hair straighteners', 'hair care bundles'];
+        if (categoryNames.some(cat => nameLower.includes(cat))) return;
+      }
+      
+      products.push({
+        name,
+        price,
+        originalPrice,
+        description: $el.find('[class*="description"], p').first().text().trim(),
+        category: isPromotional ? 'Promotions' : 'General',
+        url: productUrl,
+      });
+      seenProducts.add(nameLower);
     });
 
     // Method 3: Extract from text content - look for product patterns
@@ -147,7 +190,16 @@ async function extractProductsFromPage(url: string, isPromotional: boolean = fal
 // Helper function to extract product from an element
 function extractProductFromElement($el: cheerio.Cheerio<any>, $: cheerio.CheerioAPI, products: Product[], seenProducts: Set<string>, isPromotional: boolean, pageUrl: string) {
   const name = $el.find('h1, h2, h3, h4, [class*="name"], [class*="title"], [class*="product-name"]').first().text().trim();
-  if (!name || name.length < 3 || seenProducts.has(name.toLowerCase())) return;
+  if (!name || name.length < 3) return;
+  
+  // Filter out non-product names
+  const excludedNames = ['search', 'sign up', 'login', 'register', 'track', 'support', 'contact', 'about', 'blog', 'faq', 'delivery', 'returns', 'warranty', 'privacy', 'terms', 'cookie', 'basket', 'cart', 'checkout'];
+  const nameLower = name.toLowerCase().trim();
+  if (excludedNames.some(excluded => nameLower === excluded || nameLower.includes(excluded))) return;
+  if (seenProducts.has(nameLower)) return;
+  
+  // Only include if it looks like a product name (has letters, not just numbers/symbols)
+  if (!/[a-zA-Z]{3,}/.test(name)) return;
 
   const priceText = $el.find('[class*="price"], .price, [data-price], [class*="cost"]').first().text();
   const priceMatch = priceText.match(/£[\d,]+\.?\d*/g);
@@ -155,6 +207,13 @@ function extractProductFromElement($el: cheerio.Cheerio<any>, $: cheerio.Cheerio
   const originalPrice = priceMatch && priceMatch.length > 1 ? priceMatch[1] : undefined;
 
   const link = $el.find('a').first().attr('href');
+  if (link) {
+    // Filter out excluded paths
+    const excludedPaths = ['newsletter', 'signup', 'search', 'login', 'register', 'track', 'support', 'contact', 'about', 'blog', 'faq', 'delivery', 'returns', 'warranty', 'privacy', 'terms', 'cookie'];
+    const hrefLower = link.toLowerCase();
+    if (excludedPaths.some(path => hrefLower.includes(path))) return;
+  }
+  
   const productUrl = link?.startsWith('http') ? link : `${GTECH_BASE_URL}${link || ''}`;
 
   const category = $el.closest('[class*="category"], section, [class*="section"]').find('h1, h2, h3').first().text().trim() || 
@@ -168,7 +227,7 @@ function extractProductFromElement($el: cheerio.Cheerio<any>, $: cheerio.Cheerio
     category: category || (isPromotional ? 'Promotions' : 'General'),
     url: productUrl,
   });
-  seenProducts.add(name.toLowerCase());
+  seenProducts.add(nameLower);
 }
 
 // Check if website has sales or promotions
@@ -241,6 +300,7 @@ export async function fetchGtechProducts(): Promise<ProductData> {
     // Pages to crawl
     const pagesToCrawl = [
       { url: GTECH_BASE_URL, isPromotional: salesInfo.hasSales },
+      { url: `${GTECH_BASE_URL}/offers.html`, isPromotional: true }, // Always check offers page for current sales
       { url: `${GTECH_BASE_URL}/black-friday`, isPromotional: true },
       { url: `${GTECH_BASE_URL}/black-friday-deals`, isPromotional: true },
       { url: `${GTECH_BASE_URL}/sale`, isPromotional: true },
@@ -261,6 +321,7 @@ export async function fetchGtechProducts(): Promise<ProductData> {
       const pageUrl = pagesToCrawl[index].url;
       const isBlackFridayPage = pageUrl.includes('black-friday') || pageUrl.includes('blackfriday');
       const isSalePage = pageUrl.includes('sale') || pageUrl.includes('promotion') || pageUrl.includes('deal');
+      const isOffersPage = pageUrl.includes('offers.html');
 
       products.forEach(product => {
         const key = product.name.toLowerCase();
@@ -275,7 +336,15 @@ export async function fetchGtechProducts(): Promise<ProductData> {
           allProducts.push(product);
           seenProducts.add(key);
 
-          if (product.originalPrice || pagesToCrawl[index].isPromotional || isBlackFridayPage || isSalePage) {
+          // CRITICAL: For offers page, ONLY include products that have originalPrice (actually on sale)
+          // For other promotional pages, include products with originalPrice or marked as promotional
+          if (isOffersPage) {
+            // Only add to sales if product has originalPrice (indicating it's on sale)
+            if (product.originalPrice) {
+              promotions.push(product);
+              sales.push(product);
+            }
+          } else if (product.originalPrice || (pagesToCrawl[index].isPromotional && !isOffersPage) || isBlackFridayPage || isSalePage) {
             promotions.push(product);
             sales.push(product);
           }
@@ -426,7 +495,36 @@ export async function getComprehensiveWebsiteData(): Promise<WebsiteData> {
   }
 
   // Get products with original prices (on sale) - must have a name
-  const saleProducts = (data.products || []).filter((p: Product) => p && p.name && p.name.trim() && p.originalPrice);
+  // CRITICAL: Only include products that have originalPrice (indicating they're actually on sale)
+  // Exclude category pages, navigation elements, and products without sale prices
+  const excludedNames = ['view all', 'view product', 'add to basket', 'january offers', 'floorcare', 'power tools', 'garden tools', 'hair care', 'cordless upright vacuums', 'cordless stick vacuum cleaners', 'wet and dry vacuums', 'cordless handheld vacuums', 'cordless carpet sweepers', 'cordless drills & drivers', 'work lights', 'cordless lawn mowers', 'cordless grass trimmers', 'cordless hedge trimmers', 'hair dryers', 'hair straighteners', 'hair care bundles', 'upright', 'stick', 'handheld', 'combi drills', 'impact drivers', 'cordless vacuums'];
+  const excludedPaths = ['/uprights.html', '/sticks.html', '/handhelds.html', '/cordless-wet-and-dry-vacuums.html', '/floor-sweepers.html', '/drills-and-drivers.html', '/work-lights.html', '/lawnmowers.html', '/grass-trimmers.html', '/hedge-trimmers.html', '/hair-dryers.html', '/hair-straighteners.html', '/hair-care-bundles.html', '/bundles.html', '/floorcare-accessories.html', '/power-tools-accessories.html', '/gardening-accessories.html'];
+  
+  const saleProducts = (data.sales || []).filter((p: Product) => {
+    if (!p || !p.name || !p.name.trim()) return false;
+    
+    // MUST have originalPrice to be considered on sale
+    if (!p.originalPrice) return false;
+    
+    // Exclude category pages and navigation elements
+    const nameLower = p.name.toLowerCase().trim();
+    if (excludedNames.some(excluded => nameLower.includes(excluded))) return false;
+    
+    // Exclude products with category page URLs
+    if (p.url) {
+      const urlLower = p.url.toLowerCase();
+      if (excludedPaths.some(path => urlLower.includes(path))) return false;
+      // Exclude if URL is just the base domain or category pages
+      if (urlLower === GTECH_BASE_URL.toLowerCase() || urlLower === `${GTECH_BASE_URL}/`.toLowerCase()) return false;
+      // Exclude CSS class names and invalid product names
+      if (nameLower.startsWith('.') || nameLower.startsWith('{') || nameLower.includes('product-image-container')) return false;
+    }
+    
+    // Must have at least 3 letters in the name
+    if (!/[a-zA-Z]{3,}/.test(p.name)) return false;
+    
+    return true;
+  });
 
   // Get black friday products - comprehensive check
   const blackFridayProducts = (data.products || []).filter((p: Product) => {

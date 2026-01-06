@@ -51,18 +51,18 @@ const SUPPORT_PHONE = '08000 308 794';
 
 // Category page URLs mapping
 const CATEGORY_URLS: Record<string, string> = {
-  'power tools': `${GTECH_BASE_URL}/products/power-tools`,
-  'power tool': `${GTECH_BASE_URL}/products/power-tools`,
-  'garden tools': `${GTECH_BASE_URL}/products/garden-tools`,
-  'garden tool': `${GTECH_BASE_URL}/products/garden-tools`,
-  'floorcare': `${GTECH_BASE_URL}/products/floorcare`,
-  'floor care': `${GTECH_BASE_URL}/products/floorcare`,
-  'hair care': `${GTECH_BASE_URL}/products/hair-care`,
-  'haircare': `${GTECH_BASE_URL}/products/hair-care`,
-  'vacuum': `${GTECH_BASE_URL}/products/floorcare`,
-  'drill': `${GTECH_BASE_URL}/products/power-tools`,
-  'mower': `${GTECH_BASE_URL}/products/garden-tools`,
-  'trimmer': `${GTECH_BASE_URL}/products/garden-tools`,
+  'power tools': `${GTECH_BASE_URL}/cordless-power-tools.html`,
+  'power tool': `${GTECH_BASE_URL}/cordless-power-tools.html`,
+  'garden tools': `${GTECH_BASE_URL}/garden-tools.html`,
+  'garden tool': `${GTECH_BASE_URL}/garden-tools.html`,
+  'floorcare': `${GTECH_BASE_URL}/cordless-vacuum-cleaners.html`,
+  'floor care': `${GTECH_BASE_URL}/cordless-vacuum-cleaners.html`,
+  'hair care': `${GTECH_BASE_URL}/haircare.html`,
+  'haircare': `${GTECH_BASE_URL}/haircare.html`,
+  'vacuum': `${GTECH_BASE_URL}/cordless-vacuum-cleaners.html`,
+  'drill': `${GTECH_BASE_URL}/cordless-power-tools.html`,
+  'mower': `${GTECH_BASE_URL}/garden-tools.html`,
+  'trimmer': `${GTECH_BASE_URL}/garden-tools.html`,
 };
 
 // Store conversation context
@@ -326,25 +326,62 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     
     // Always add all sale products to context (not just when user asks about sales)
     if (websiteData.sales && websiteData.sales.length > 0) {
-      const validSaleProducts = websiteData.sales.filter((p: Product) => p && p.name && p.name.trim());
+      // Filter out invalid products - exclude navigation elements and non-product items
+      const excludedNames = ['search', 'sign up', 'login', 'register', 'track', 'support', 'contact', 'about', 'blog', 'faq', 'delivery', 'returns', 'warranty', 'privacy', 'terms', 'cookie', 'basket', 'cart', 'checkout'];
+      const excludedPaths = ['newsletter', 'signup', 'search', 'login', 'register', 'track', 'support', 'contact', 'about', 'blog', 'faq', 'delivery', 'returns', 'warranty', 'privacy', 'terms', 'cookie'];
+      
+      // First, filter out invalid products
+      let validSaleProducts = websiteData.sales.filter((p: Product) => {
+        if (!p || !p.name || !p.name.trim()) return false;
+        
+        const nameLower = p.name.toLowerCase().trim();
+        // Exclude navigation elements
+        if (excludedNames.some(excluded => nameLower === excluded || nameLower.includes(excluded))) return false;
+        
+        // Exclude products with invalid URLs
+        if (p.url) {
+          const urlLower = p.url.toLowerCase();
+          if (excludedPaths.some(path => urlLower.includes(path))) return false;
+        }
+        
+        // Must have at least 3 letters in the name
+        if (!/[a-zA-Z]{3,}/.test(p.name)) return false;
+        
+        return true;
+      });
+      
+      // Fetch full details for products missing price or originalPrice
+      // This ensures all sale products have complete information
+      await Promise.all(
+        validSaleProducts.map(async (product: Product) => {
+          if ((!product.price || product.price === 'Check website for current price' || !product.originalPrice) && product.url && product.url !== GTECH_BASE_URL && !product.url.includes('newsletter') && !product.url.includes('signup')) {
+            try {
+              const fullDetails = await Promise.race([
+                fetchProductDetails(product.url),
+                new Promise<Product | null>((resolve) => setTimeout(() => resolve(null), 3000))
+              ]);
+              if (fullDetails) {
+                // Merge full details, prioritizing fetched price and originalPrice
+                Object.assign(product, {
+                  ...fullDetails,
+                  price: fullDetails.price !== 'Check website for current price' ? fullDetails.price : product.price,
+                  originalPrice: fullDetails.originalPrice || product.originalPrice,
+                });
+              }
+            } catch (error) {
+              // Silently continue if fetch fails
+            }
+          }
+        })
+      );
       
       contextInfo += `--- All Products Currently on Sale (${validSaleProducts.length} products) ---\n`;
       contextInfo += `\n🚨 CRITICAL INSTRUCTION - READ CAREFULLY 🚨\n`;
-      contextInfo += `When user asks about sales (ANY variation: "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?"):\n`;
-      contextInfo += `1. Count the products in the list below: There are EXACTLY ${validSaleProducts.length} products\n`;
-      contextInfo += `2. You MUST list ALL ${validSaleProducts.length} products in your response\n`;
-      contextInfo += `3. Do NOT stop at 3 products - continue until you have listed all ${validSaleProducts.length} products\n`;
-      contextInfo += `4. Your response must include product numbers 1 through ${validSaleProducts.length}\n`;
-      contextInfo += `5. If you list fewer than ${validSaleProducts.length} products, your response is INCORRECT\n\n`;
-      contextInfo += `PRODUCT LIST (${validSaleProducts.length} products total):\n\n`;
-      validSaleProducts.forEach((product: Product, index: number) => {
-        const priceInfo = product.price && product.price !== 'Check website for current price' 
-          ? product.price 
-          : 'Price available on product page';
-        contextInfo += `PRODUCT ${index + 1} of ${validSaleProducts.length}: ${product.name} - ${priceInfo}${product.originalPrice ? ` (was ${product.originalPrice})` : ''} - ${product.url}\n`;
-      });
-      contextInfo += `\n--- End of Sale Products (Total: ${validSaleProducts.length} products) ---\n\n`;
-      contextInfo += `FINAL REMINDER: You must list all ${validSaleProducts.length} products above. The count is ${validSaleProducts.length}, not 3. List all ${validSaleProducts.length} products.\n\n`;
+      contextInfo += `When user asks about sales, offers, or promotions (ANY variation: "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?", "what offers do you have?", "what offer do you have right now?", "what offers Gtech have?"):\n`;
+      contextInfo += `CRITICAL: When user asks about offers, sales, or promotions, you MUST ONLY provide the offers page link. DO NOT list individual products.\n`;
+      contextInfo += `Your response should be SIMPLE and SHORT - just provide the link:\n`;
+      contextInfo += `"You can view all our current offers here: https://www.gtech.co.uk/offers.html"\n`;
+      contextInfo += `DO NOT list products. DO NOT show product names, prices, or URLs. ONLY show the offers page link.\n\n`;
     }
     
     if (context.lastProduct) {
@@ -420,47 +457,34 @@ CRITICAL RULES:
 9. **CATEGORY QUERIES - CRITICAL**: When users ask about a product category (e.g., "power tools", "garden tools", "floorcare", "hair care", "vacuum", "drill", "mower", "trimmer", etc.) OR ask for a category link (e.g., "give me the link", "what's the URL", "link to hair care"):
    - Provide a brief, friendly response acknowledging the category
    - ALWAYS include the FULL category page URL in your response - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
-   - CRITICAL: When providing category links, you MUST use the complete full URL starting with "https://www.gtech.co.uk/products/"
+   - CRITICAL: When providing category links, you MUST use the complete full URL starting with "https://www.gtech.co.uk/"
    - NEVER use partial URLs, relative paths, or text like "products/hair-care" - ALWAYS use the complete URL
    - Format examples (COPY THESE EXACT FORMATS - DO NOT MODIFY):
-     For "hair care" category: "You can browse all our hair care products here: https://www.gtech.co.uk/products/hair-care"
-     For "power tools" category: "You can browse all our power tools here: https://www.gtech.co.uk/products/power-tools"
+     For "hair care" category: "Yes, we have a variety of hair care products available! You can browse all our hair care products here: https://www.gtech.co.uk/haircare.html"
+     For "power tools" category: "Yes, we have a range of power tools available! You can browse all our power tools here: https://www.gtech.co.uk/cordless-power-tools.html"
    - When user explicitly asks for a link (e.g., "give me the link", "what's the URL", "link to hair care"), respond EXACTLY like this:
-     For hair care: "Of course! Here's the link to our hair care category: https://www.gtech.co.uk/products/hair-care"
-     For power tools: "Of course! Here's the link to our power tools category: https://www.gtech.co.uk/products/power-tools"
-   - CRITICAL: The URL MUST be complete - it MUST end with the category name (e.g., "/hair-care", "/power-tools")
+     For hair care: "Of course! Here's the link to our hair care category: https://www.gtech.co.uk/haircare.html"
+     For power tools: "Of course! Here's the link to our power tools category: https://www.gtech.co.uk/cordless-power-tools.html"
+   - CRITICAL: The URL MUST be complete - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
    - NEVER output "https://www.gtech.co.uk/products/" without the category name - this is WRONG
-   - The CORRECT format is: "https://www.gtech.co.uk/products/hair-care" (with "/hair-care" at the end)
+   - The CORRECT format is: "https://www.gtech.co.uk/haircare.html" (for hair care category)
    - The WRONG format is: "https://www.gtech.co.uk/products/" (missing the category name)
+   - IMPORTANT: DO NOT use markdown link syntax like [text](url) - just include the plain URL in your response
+   - DO NOT use brackets or parentheses around URLs - just write the URL as plain text
+   - The URL will be automatically converted to a clickable link, so just include it as plain text
    - Keep the response concise and helpful - DO NOT list all products in detail
    - DO NOT ask "which product are you interested in?" - instead direct them to the category page and ask for model number/product name
 11. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
 12. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
-   - When user asks ANY question about sales (e.g., "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?"):
-   - You MUST look at the "All Products Currently on Sale" section above and count how many products are listed
-   - You MUST list EVERY SINGLE product from that section - ALL of them, not just 3
-   - If the section says "Total: X products", you MUST list ALL X products
-   - Do NOT stop at 3 products - continue listing until you have listed ALL products from the section
-   - Each product MUST include: Product Name, Current Price, Original Price (if available), and URL
-   - Format: "1) [Product Name] - [Current Price] (was [Original Price]) - [URL]"
-   - CRITICAL: Use parentheses for numbering: 1), 2), 3), 4) NOT periods (1., 2., 3.)
-   - CRITICAL: Each product MUST be on a separate line with a blank line between products
-   - Format example:
-     1) Product Name 1 - £100 (was £150) - https://url1.com
-     
-     2) Product Name 2 - £200 (was £250) - https://url2.com
-     
-     3) Product Name 3 - £300 (was £350) - https://url3.com
-     
-     4) Product Name 4 - £400 (was £450) - https://url4.com
-   - IMPORTANT: Do NOT add "View Product" text or markdown links like [View Product](url) - just include the URL directly
-   - Do NOT use HTML tags or markdown formatting - use plain text with URLs
-   - ALWAYS add a blank line (double line break) after each product URL before the next product number
-   - NEVER let a URL run directly into the next product number - always have a line break
-   - If you see "Total: 5 products" in the section, you MUST list all 5 products
-   - If you see "Total: 3 products" in the section, list all 3 products
-   - The number of products you list MUST match the total number shown in the "All Products Currently on Sale" section
-   - EXAMPLE: If the section shows "Total: 5 products" and lists PRODUCT 1, PRODUCT 2, PRODUCT 3, PRODUCT 4, PRODUCT 5, your response MUST include all 5 products numbered 1 through 5
+   - When user asks ANY question about sales, offers, or promotions (e.g., "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?", "what offers do you have?", "what offer do you have right now?", "what products do you have on offer?", "do you have any offer?", "what offers are available?", "what offers Gtech have?"):
+   - CRITICAL: The word "offer" or "offers" in ANY form means the user is asking about offers
+   - You MUST respond with ONLY the offers page link - DO NOT list individual products
+   - Your response should be SIMPLE and SHORT:
+     "You can view all our current offers here: https://www.gtech.co.uk/offers.html"
+   - DO NOT list products, prices, or product URLs
+   - DO NOT show product names or details
+   - ONLY provide the offers page link
+   - Keep your response brief and to the point
 13. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
@@ -494,18 +518,21 @@ Generate a helpful, intelligent response based on the user's query and the live 
 **CATEGORY PAGE URLS - CRITICAL - YOU MUST USE THESE EXACT COMPLETE URLs**:
 When users ask about categories or request category links, you MUST use these EXACT complete URLs (copy them exactly as shown):
 
-For "hair care" or "haircare" → USE THIS EXACT URL: https://www.gtech.co.uk/products/hair-care
-For "power tools" → USE THIS EXACT URL: https://www.gtech.co.uk/products/power-tools
-For "garden tools" → USE THIS EXACT URL: https://www.gtech.co.uk/products/garden-tools
-For "floorcare" or "floor care" → USE THIS EXACT URL: https://www.gtech.co.uk/products/floorcare
+For "hair care" or "haircare" → USE THIS EXACT URL: https://www.gtech.co.uk/haircare.html
+For "power tools" → USE THIS EXACT URL: https://www.gtech.co.uk/cordless-power-tools.html
+For "garden tools" → USE THIS EXACT URL: https://www.gtech.co.uk/garden-tools.html
+For "floorcare" or "floor care" → USE THIS EXACT URL: https://www.gtech.co.uk/cordless-vacuum-cleaners.html
 
 CRITICAL RULES - READ CAREFULLY:
-1. ALWAYS include the COMPLETE URL path - the full URL must end with the category name (e.g., "/hair-care", "/power-tools")
-2. NEVER stop at "/products/" - you MUST include the category name after "/products/"
-3. NEVER use "https://www.gtech.co.uk/products/" alone - it MUST be followed by the category name
-4. The complete URL for hair care is: https://www.gtech.co.uk/products/hair-care (NOT https://www.gtech.co.uk/products/)
-5. Copy the URLs exactly as shown above - do NOT modify, shorten, or truncate them
-6. The URL will be automatically converted to a clickable link, so just include the full complete URL as plain text
+1. ALWAYS include the COMPLETE URL path - use the EXACT URLs shown above
+2. For power tools, use: https://www.gtech.co.uk/cordless-power-tools.html (NOT /products/power-tools)
+3. For hair care, use: https://www.gtech.co.uk/haircare.html (NOT /products/hair-care)
+4. For floorcare, use: https://www.gtech.co.uk/cordless-vacuum-cleaners.html (NOT /products/floorcare)
+5. For garden tools, use: https://www.gtech.co.uk/garden-tools.html (NOT /products/garden-tools)
+6. NEVER stop at "/products/" - you MUST include the complete path
+7. NEVER use "https://www.gtech.co.uk/products/" alone - it MUST be followed by the category name
+8. Copy the URLs exactly as shown above - do NOT modify, shorten, or truncate them
+9. The URL will be automatically converted to a clickable link, so just include the full complete URL as plain text
 
 **PRICE QUERIES - CRITICAL**: When users ask about product prices (e.g., "what's the price of AirRAM 3" or "price of hair dryer"), you MUST:
 - ALWAYS check the "Products Found from Query" section above FIRST
@@ -656,8 +683,8 @@ CRITICAL RULES - READ CAREFULLY:
         }
       }
 
-      // If user asks about sales/promotions, update context
-      if (lowerMessage.includes('sale') || lowerMessage.includes('promotion') || lowerMessage.includes('discount') || lowerMessage.includes('deal')) {
+      // If user asks about sales/promotions/offers, update context
+      if (lowerMessage.includes('sale') || lowerMessage.includes('promotion') || lowerMessage.includes('discount') || lowerMessage.includes('deal') || lowerMessage.includes('offer')) {
         const saleProducts = websiteData.sales.length > 0 ? websiteData.sales : websiteData.products.filter((p: Product) => p && p.originalPrice);
         if (saleProducts.length > 0) {
           context.lastProducts = saleProducts.slice(0, 10);
@@ -792,35 +819,70 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
     formatted = formatted.replace(/our website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">our website</a>`);
     formatted = formatted.replace(/Track My Order/gi, `<a href="${GTECH_BASE_URL}/track-my-order" target="_blank">Track My Order</a>`);
     
+    // Clean up broken markdown links first (e.g., "url](url)" or "url](url)" patterns)
+    formatted = formatted.replace(/https?:\/\/[^\s<>"']+\]\(https?:\/\/[^\s<>"']+\)/g, (match) => {
+      // Extract just the first URL from broken markdown
+      const urlMatch = match.match(/https?:\/\/[^\s<>"']+/);
+      return urlMatch ? urlMatch[0] : match;
+    });
+    
     // Convert ALL plain URLs to clickable links FIRST (before any other processing)
     // This ensures all URLs including category pages are converted
-    const urlPattern = /(https?:\/\/[^\s<>"']+)/g;
-    formatted = formatted.replace(urlPattern, (url) => {
-      // Check if URL is already inside a link
-      const urlIndex = formatted.indexOf(url);
-      if (urlIndex === -1) return url;
+    // Use a robust pattern that captures complete URLs including full paths
+    // Pattern: http:// or https:// followed by domain and path (allows hyphens, slashes, dots, etc.)
+    // IMPORTANT: Match the complete URL including all path segments - stop only at whitespace, <, >, quotes
+    // This pattern ensures we capture URLs like https://www.gtech.co.uk/cordless-power-tools.html completely
+    const urlPattern = /https?:\/\/[^\s<>"']+/g;
+    let lastIndex = 0;
+    const urlMatches: Array<{ url: string; index: number; replacement: string }> = [];
+    let match;
+    
+    // First pass: collect all URL matches with their positions
+    // Reset regex lastIndex to ensure we start from the beginning
+    urlPattern.lastIndex = 0;
+    while ((match = urlPattern.exec(formatted)) !== null) {
+      const url = match[0];
+      const matchIndex = match.index;
       
-      const textBeforeUrl = formatted.substring(0, urlIndex);
+      // Check if URL is already inside a link by examining the text before this match
+      const textBeforeUrl = formatted.substring(0, matchIndex);
       const lastOpenTag = textBeforeUrl.lastIndexOf('<a');
       const lastCloseTag = textBeforeUrl.lastIndexOf('</a>');
       
-      // If already inside a link, don't convert
-      if (lastOpenTag > lastCloseTag) {
-        return url;
+      // If already inside a link, skip
+      if (lastOpenTag <= lastCloseTag) {
+        // Remove trailing punctuation that shouldn't be part of the URL
+        let cleanUrl = url;
+        let trailing = '';
+        // Remove trailing punctuation including parentheses, periods, commas, etc.
+        // CRITICAL: Remove closing parentheses ) that are not part of the URL (causes 404 errors)
+        // Only remove punctuation if URL doesn't end with / (which is valid)
+        if (!cleanUrl.endsWith('/')) {
+          // Check for trailing punctuation: ), ], ., ,, !, ?, ;, :
+          const trailingPunctMatch = cleanUrl.match(/^(.+?)([)\].,!?;:]+)$/);
+          if (trailingPunctMatch) {
+            cleanUrl = trailingPunctMatch[1];
+            trailing = trailingPunctMatch[2];
+          }
+        }
+        
+        // CRITICAL: Ensure we have the complete URL - the link text MUST be the full URL
+        // Verify the URL is complete (especially for category URLs like /cordless-power-tools.html)
+        // Escape the URL for HTML attributes
+        const escapedUrl = cleanUrl.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        // CRITICAL: Use the full cleanUrl for BOTH href and link text to ensure the entire URL is clickable
+        // The link text must match the href exactly to ensure the full URL is clickable
+        const replacement = `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
+        
+        urlMatches.push({ url, index: matchIndex, replacement });
       }
-      
-      // Remove trailing punctuation that shouldn't be part of the URL
-      let cleanUrl = url;
-      let trailing = '';
-      const trailingPunct = /([.,!?;:])(?=\s|$)/;
-      const punctMatch = url.match(trailingPunct);
-      if (punctMatch && !url.endsWith('/')) {
-        trailing = punctMatch[1];
-        cleanUrl = url.slice(0, -1);
-      }
-      
-      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
-    });
+    }
+    
+    // Second pass: replace URLs from end to start to preserve indices
+    for (let i = urlMatches.length - 1; i >= 0; i--) {
+      const { url, index, replacement } = urlMatches[i];
+      formatted = formatted.substring(0, index) + replacement + formatted.substring(index + url.length);
+    }
     
     // Ensure proper line breaks before product numbers (fix cases where URL runs into next product number)
     // Fix pattern like ".html2)" or ".html 2)" or ".html2." or ".html 2." to have proper line breaks
@@ -882,32 +944,12 @@ async function generateIntelligentResponse(message: string, context: any, websit
     }
   }
   
-  // Handle sales/promotions
-  if (lowerMessage.includes('sale') || lowerMessage.includes('promotion') || lowerMessage.includes('discount')) {
-    const saleProducts = websiteData.sales.length > 0 ? websiteData.sales : websiteData.products.filter((p: Product) => p.originalPrice);
-    
-    if (saleProducts.length > 0) {
-      context.lastProducts = saleProducts.slice(0, 10);
-      
-      let response = `<strong>Yes! We have ${saleProducts.length} products on sale right now:</strong><br/><br/>`;
-      
-      saleProducts.slice(0, 10).forEach((product: Product) => {
-        response += `<strong>${product.name}</strong><br/>`;
-        response += `💰 Price: <strong>${product.price}</strong>`;
-        if (product.originalPrice) {
-          response += ` <span style="text-decoration: line-through; color: #999;">was ${product.originalPrice}</span>`;
-        }
-        response += `<br/>🔗 <a href="${product.url}" target="_blank">View Product</a><br/><br/>`;
-      });
-      
-      if (saleProducts.length > 10) {
-        response += `...and ${saleProducts.length - 10} more products on sale!<br/><br/>`;
-      }
-      
-      response += `Visit <a href="${GTECH_BASE_URL}" target="_blank">${GTECH_BASE_URL}</a> to see all sale products.`;
-      
-      return { response };
-    }
+  // Handle sales/promotions/offers - ONLY show the offers link, not product list
+  if (lowerMessage.includes('sale') || lowerMessage.includes('promotion') || lowerMessage.includes('discount') || lowerMessage.includes('offer')) {
+    // Simply return the offers page link without listing products
+    return {
+      response: `You can view all our current offers here: <a href="https://www.gtech.co.uk/offers.html" target="_blank">https://www.gtech.co.uk/offers.html</a>`
+    };
   }
   
   // Handle product searches

@@ -79,15 +79,55 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     const existingLinks: Array<{ placeholder: string; html: string }> = [];
     let existingLinkIndex = 0;
     
-    // Preserve <a> tags
-    let processedText = text.replace(/<a\s+([^>]*?)>(.*?)<\/a>/gi, (match) => {
+    // Preserve <a> tags - use a robust pattern to capture complete links including full URLs
+    // CRITICAL: This must capture the ENTIRE link including long URLs like /products/power-tools
+    // The issue is that non-greedy matching might stop early, so we need a more robust approach
+    let processedText = text;
+    
+    // Use a more robust method: find all <a tags and match them with their closing </a>
+    // This ensures we capture the complete link even with long URLs in the link text
+    const anchorMatches: Array<{ fullMatch: string; startIndex: number; endIndex: number }> = [];
+    let searchIndex = 0;
+    
+    while (searchIndex < text.length) {
+      const openTagIndex = text.indexOf('<a', searchIndex);
+      if (openTagIndex === -1) break;
+      
+      // Find the end of the opening tag
+      const tagEndIndex = text.indexOf('>', openTagIndex);
+      if (tagEndIndex === -1) break;
+      
+      // Find the matching closing tag - look for </a> after the opening tag
+      // We need to find the REAL closing tag, not just any </a>
+      let closeTagIndex = text.indexOf('</a>', tagEndIndex);
+      if (closeTagIndex === -1) break;
+      
+      // Extract the full anchor tag
+      const fullMatch = text.substring(openTagIndex, closeTagIndex + 4); // +4 for '</a>'
+      
+      // Only process if it looks like a valid anchor tag with href
+      if (fullMatch.includes('href')) {
+        anchorMatches.push({
+          fullMatch: fullMatch,
+          startIndex: openTagIndex,
+          endIndex: closeTagIndex + 4
+        });
+        searchIndex = closeTagIndex + 4;
+      } else {
+        searchIndex = tagEndIndex + 1;
+      }
+    }
+    
+    // Replace anchor tags from end to start to preserve indices
+    for (let i = anchorMatches.length - 1; i >= 0; i--) {
+      const { fullMatch, startIndex, endIndex } = anchorMatches[i];
       const placeholder = `__EXISTING_LINK_${existingLinkIndex++}__`;
       existingLinks.push({
         placeholder,
-        html: match, // Preserve the original HTML exactly
+        html: fullMatch, // Preserve the original HTML exactly
       });
-      return placeholder;
-    });
+      processedText = processedText.substring(0, startIndex) + placeholder + processedText.substring(endIndex);
+    }
 
     // Preserve <br> and <br/> tags
     const existingBreaks: Array<{ placeholder: string; html: string }> = [];
@@ -119,17 +159,66 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     });
 
     // Step 2: Replace markdown links [text](url) with placeholders
+    // CRITICAL: Convert markdown links to plain clickable URLs (remove brackets, show only URL)
     const markdownLinkPlaceholders: Array<{ placeholder: string; html: string }> = [];
     let markdownIndex = 0;
     
-    processedText = processedText.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
+    // Process markdown links manually to handle parentheses in link text correctly
+    // Find all [text](url) patterns, including those with parentheses in the text
+    let markdownSearchIndex = 0;
+    const markdownMatches: Array<{ fullMatch: string; url: string; startIndex: number; endIndex: number }> = [];
+    
+    while (markdownSearchIndex < processedText.length) {
+      const openBracket = processedText.indexOf('[', markdownSearchIndex);
+      if (openBracket === -1) break;
+      
+      const closeBracket = processedText.indexOf(']', openBracket + 1);
+      if (closeBracket === -1) break;
+      
+      const openParen = processedText.indexOf('(', closeBracket + 1);
+      if (openParen === -1 || openParen !== closeBracket + 1) {
+        markdownSearchIndex = openBracket + 1;
+        continue;
+      }
+      
+      const closeParen = processedText.indexOf(')', openParen + 1);
+      if (closeParen === -1) break;
+      
+      // Extract URL (between parentheses)
+      let url = processedText.substring(openParen + 1, closeParen).trim();
+      
+      // CRITICAL: Remove any trailing punctuation from the URL (like closing parentheses)
+      // This prevents 404 errors when URLs have trailing brackets
+      url = url.replace(/[)\].,!?;:]+$/, '');
+      
+      // Only process if it looks like a URL
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const fullMatch = processedText.substring(openBracket, closeParen + 1);
+        markdownMatches.push({
+          fullMatch,
+          url,
+          startIndex: openBracket,
+          endIndex: closeParen + 1
+        });
+        markdownSearchIndex = closeParen + 1;
+      } else {
+        markdownSearchIndex = openBracket + 1;
+      }
+    }
+    
+    // Replace markdown links from end to start to preserve indices
+    for (let i = markdownMatches.length - 1; i >= 0; i--) {
+      const { fullMatch, url, startIndex, endIndex } = markdownMatches[i];
       const placeholder = `__MARKDOWN_LINK_${markdownIndex++}__`;
+      // Use the URL as the link text instead of the markdown text to avoid showing brackets
+      // This ensures clean display: just the clickable URL without brackets
+      const cleanUrl = url.trim();
       markdownLinkPlaceholders.push({
         placeholder,
-        html: `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">${escapeHtml(linkText)}</a>`,
+        html: `<a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">${escapeHtml(cleanUrl)}</a>`,
       });
-      return placeholder;
-    });
+      processedText = processedText.substring(0, startIndex) + placeholder + processedText.substring(endIndex);
+    }
     
     // Step 3: Split by placeholders and escape text parts only
     const parts: Array<{ type: 'text' | 'placeholder'; content: string }> = [];
@@ -164,27 +253,88 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     let html = parts.map(part => part.content).join('');
     
     // Step 4: Convert plain URLs to clickable links (only process text parts)
-    // Match URLs including those at end of sentences with punctuation
-    const urlPattern = /https?:\/\/[^\s<>"']+/g; 
-    html = html.replace(urlPattern, (matched) => {
+    // Match complete URLs including full paths - CRITICAL: must capture entire URL including all path segments
+    // Pattern: http:// or https:// followed by domain and complete path (allows hyphens, slashes, dots, etc.)
+    // IMPORTANT: This pattern must match the FULL URL like https://www.gtech.co.uk/products/power-tools
+    // The pattern stops ONLY at whitespace, <, >, quotes - NOT at slashes or hyphens
+    const urlPattern = /https?:\/\/[^\s<>"']+/g;
+    const urlMatches: Array<{ url: string; index: number; replacement: string }> = [];
+    // Reuse match variable from above (reset it)
+    match = null;
+    
+    // First pass: collect all URL matches with their positions
+    while ((match = urlPattern.exec(html)) !== null) {
+      const matched = match[0];
+      const matchIndex = match.index;
+      
       // Skip if this looks like part of a placeholder
-      if (matched.includes('__LINK_') || matched.includes('__MARKDOWN_') || matched.includes('__EXISTING_')) {
-        return matched;
+      if (matched.includes('__LINK_') || matched.includes('__MARKDOWN_') || matched.includes('__EXISTING_') || matched.includes('__VALID_TAG_')) {
+        continue;
       }
       
+      // CRITICAL: Check if this URL is already inside an anchor tag
+      // We need to check if there's an unclosed <a tag before this URL
+      const textBeforeMatch = html.substring(0, matchIndex);
+      
+      // Find the last <a tag (both escaped and unescaped)
+      const lastOpenTag = Math.max(
+        textBeforeMatch.lastIndexOf('<a'),
+        textBeforeMatch.lastIndexOf('&lt;a')
+      );
+      const lastCloseTag = Math.max(
+        textBeforeMatch.lastIndexOf('</a>'),
+        textBeforeMatch.lastIndexOf('&lt;/a&gt;')
+      );
+      
+      // If we're inside a link (lastOpenTag > lastCloseTag), skip this URL
+      // This prevents converting URLs that are already part of link text
+      if (lastOpenTag > lastCloseTag) {
+        continue; // Skip - URL is already inside a link
+      }
+      
+      // Also check if this URL is part of a placeholder (already processed)
+      if (textBeforeMatch.includes('__EXISTING_LINK_') || textBeforeMatch.includes('__VALID_TAG_')) {
+        // Check if we're inside a placeholder by looking backwards
+        const lastPlaceholder = Math.max(
+          textBeforeMatch.lastIndexOf('__EXISTING_LINK_'),
+          textBeforeMatch.lastIndexOf('__VALID_TAG_')
+        );
+        if (lastPlaceholder > lastCloseTag) {
+          continue; // Skip - URL is inside a placeholder
+        }
+      }
+      
+      // URL is not inside a link, so convert it
       // Remove trailing punctuation that shouldn't be part of the URL
+      // CRITICAL: Remove closing parentheses ) that are not part of the URL (causes 404 errors)
       let cleanUrl = matched;
       let trailing = '';
-      const trailingPunct = /[.,!?;:]$/;
-      if (trailingPunct.test(cleanUrl) && !cleanUrl.endsWith('/')) {
-        trailing = cleanUrl.slice(-1);
-        cleanUrl = cleanUrl.slice(0, -1);
+      // Remove trailing punctuation including parentheses, periods, commas, etc.
+      // Only remove if URL doesn't end with / (which is valid)
+      if (!cleanUrl.endsWith('/')) {
+        // Check for trailing punctuation: ), ], ., ,, !, ?, ;, :
+        const trailingPunctMatch = cleanUrl.match(/^(.+?)([)\].,!?;:]+)$/);
+        if (trailingPunctMatch) {
+          cleanUrl = trailingPunctMatch[1];
+          trailing = trailingPunctMatch[2];
+        }
       }
       
       // Unescape the URL for the href attribute
-      const unescapedUrl = cleanUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-      return `<a href="${unescapedUrl}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">${cleanUrl}</a>${trailing}`;
-    });
+      const unescapedUrl = cleanUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+      // Escape for HTML attributes
+      const escapedHref = unescapedUrl.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+      // CRITICAL: Use the full cleanUrl for both href and link text to ensure the entire URL is clickable
+      const replacement = `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">${cleanUrl}</a>${trailing}`;
+      
+      urlMatches.push({ url: matched, index: matchIndex, replacement });
+    }
+    
+    // Second pass: replace URLs from end to start to preserve indices
+    for (let i = urlMatches.length - 1; i >= 0; i--) {
+      const { url, index, replacement } = urlMatches[i];
+      html = html.substring(0, index) + replacement + html.substring(index + url.length);
+    }
     
     // Step 5: Replace markdown link placeholders with actual HTML links
     markdownLinkPlaceholders.forEach(({ placeholder, html: linkHtml }) => {
@@ -199,6 +349,12 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     // Step 6.5: Remove any remaining EXISTING_LINK placeholders that weren't in the array
     // This handles cases where the API returns these placeholders as plain text
     html = html.replace(/__EXISTING_LINK_\d+__/g, '');
+    
+    // Step 6.6: Clean up any leftover markdown link syntax that wasn't converted
+    // Remove patterns like "(Teal)](url)" or "](url)" that might be left over from incomplete markdown links
+    // Only remove if it's not already part of a valid HTML link
+    html = html.replace(/([^<])\](\(https?:\/\/[^\s<>"']+\))/g, '$1'); // Remove ](url) patterns that aren't in links
+    html = html.replace(/([^<])\[([^\]]*)\]\(/g, '$1'); // Remove [text]( patterns that weren't matched (but keep text before)
 
     // Step 7: Replace break placeholders back to <br> tags
     existingBreaks.forEach(({ placeholder, html: breakHtml }) => {
@@ -229,27 +385,62 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     // Remove any exposed HTML attributes that appear as plain text
     // This handles cases where HTML attributes leak into the visible text
     
-    // First, protect valid HTML tags by temporarily replacing them
+    // First, protect ALL valid HTML anchor tags by temporarily replacing them
+    // This MUST happen before any cleanup to prevent breaking valid links
+    // CRITICAL: Use the same robust method as Step 1 to ensure we capture complete links
     const validTags: Array<{ placeholder: string; html: string }> = [];
     let tagIndex = 0;
-    html = html.replace(/<a\s+[^>]*>.*?<\/a>/gi, (match) => {
-      const placeholder = `__VALID_TAG_${tagIndex++}__`;
-      validTags.push({ placeholder, html: match });
-      return placeholder;
-    });
     
-    // Now remove broken HTML fragments from the unprotected text
+    // Use manual matching to find complete anchor tags (same approach as Step 1)
+    const validTagMatches: Array<{ fullMatch: string; startIndex: number; endIndex: number }> = [];
+    let validSearchIndex = 0;
+    
+    while (validSearchIndex < html.length) {
+      const openTagIndex = html.indexOf('<a', validSearchIndex);
+      if (openTagIndex === -1) break;
+      
+      const tagEndIndex = html.indexOf('>', openTagIndex);
+      if (tagEndIndex === -1) break;
+      
+      let closeTagIndex = html.indexOf('</a>', tagEndIndex);
+      if (closeTagIndex === -1) break;
+      
+      const fullMatch = html.substring(openTagIndex, closeTagIndex + 4);
+      
+      if (fullMatch.includes('href')) {
+        validTagMatches.push({
+          fullMatch: fullMatch,
+          startIndex: openTagIndex,
+          endIndex: closeTagIndex + 4
+        });
+        validSearchIndex = closeTagIndex + 4;
+      } else {
+        validSearchIndex = tagEndIndex + 1;
+      }
+    }
+    
+    // Replace valid tags from end to start
+    for (let i = validTagMatches.length - 1; i >= 0; i--) {
+      const { fullMatch, startIndex, endIndex } = validTagMatches[i];
+      const placeholder = `__VALID_TAG_${tagIndex++}__`;
+      validTags.push({ placeholder, html: fullMatch });
+      html = html.substring(0, startIndex) + placeholder + html.substring(endIndex);
+    }
+    
+    // Now remove broken HTML fragments from the unprotected text only
+    // These should NOT match the protected placeholders
     html = html.replace(/\s*target="_blank"\s*/gi, '');
     html = html.replace(/\s*rel="noopener noreferrer"\s*/gi, '');
     html = html.replace(/\s*style="[^"]*"\s*/gi, '');
     html = html.replace(/\s*">\s*View Product/gi, '');
     html = html.replace(/\s*">\s*View\s*/gi, '');
-    html = html.replace(/\s*">\s*/g, ' ');
+    // Only replace "> " if it's not immediately after a protected tag placeholder
+    html = html.replace(/(?<!__VALID_TAG_\d+__)\s*">\s*(?!__VALID_TAG_)/g, ' ');
     html = html.replace(/<a\s*>/gi, '');
     html = html.replace(/<\/a>\s*\(/g, ' (');
     html = html.replace(/\)\s*<\/a>/g, ')');
     
-    // Restore valid HTML tags
+    // Restore valid HTML tags - this MUST happen last
     validTags.forEach(({ placeholder, html: tagHtml }) => {
       html = html.replace(placeholder, tagHtml);
     });
