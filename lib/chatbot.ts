@@ -93,6 +93,25 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     const problemKeywords = ['not working', 'broken', 'not starting', 'not turning on', 'stopped working', 'malfunction', 'issue', 'problem', 'faulty', 'defective'];
     const isProblemReport = problemKeywords.some(keyword => lowerMessage.includes(keyword));
 
+    // Handle greetings naturally
+    const greetingPatterns = [
+      /how are you/i,
+      /how's it going/i,
+      /how are things/i,
+      /how do you do/i,
+      /how's your day/i,
+      /how are you doing/i,
+      /how are you today/i,
+    ];
+    const isGreeting = greetingPatterns.some(pattern => pattern.test(message));
+    
+    if (isGreeting) {
+      // Add greeting response to history
+      const greetingResponse = "I'm good, thank you! How can I help you today?";
+      context.conversationHistory.push({ role: 'assistant', content: greetingResponse });
+      return { response: greetingResponse };
+    }
+
     // Check if user selected an option (starts with action: prefix)
     if (message.startsWith('action:')) {
     const action = message.replace('action:', '').trim();
@@ -377,11 +396,11 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       
       contextInfo += `--- All Products Currently on Sale (${validSaleProducts.length} products) ---\n`;
       contextInfo += `\n🚨 CRITICAL INSTRUCTION - READ CAREFULLY 🚨\n`;
-      contextInfo += `When user asks about sales, offers, or promotions (ANY variation: "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?", "what offers do you have?", "what offer do you have right now?", "what offers Gtech have?"):\n`;
-      contextInfo += `CRITICAL: When user asks about offers, sales, or promotions, you MUST ONLY provide the offers page link. DO NOT list individual products.\n`;
-      contextInfo += `Your response should be SIMPLE and SHORT - just provide the link:\n`;
-      contextInfo += `"You can view all our current offers here: https://www.gtech.co.uk/offers.html"\n`;
-      contextInfo += `DO NOT list products. DO NOT show product names, prices, or URLs. ONLY show the offers page link.\n\n`;
+      contextInfo += `When user asks about sales, offers, or promotions (ANY variation: "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?", "what offers do you have?", "what offer do you have right now?", "what offers Gtech have?", "do you have any offer?"):\n`;
+      contextInfo += `CRITICAL: When user asks about offers, sales, or promotions, you MUST provide BOTH the offers page link AND the newsletter signup link. DO NOT list individual products.\n`;
+      contextInfo += `Your response should be SIMPLE and SHORT - provide both links:\n`;
+      contextInfo += `"You can view all our current offers here: https://www.gtech.co.uk/offers.html\n\nYou can also signup for our newsletter to be the first to know about our exclusive discount and offer: https://www.gtech.co.uk/newsletter-signup"\n`;
+      contextInfo += `DO NOT list products. DO NOT show product names, prices, or URLs. ONLY show the offers page link and newsletter signup link.\n\n`;
     }
     
     if (context.lastProduct) {
@@ -431,10 +450,16 @@ CRITICAL RULES:
    - ❌ WRONG: "They offer a 2-year warranty on their products"
    - ✅ CORRECT: "You can contact our customer service"
    - ❌ WRONG: "You can contact their customer service"
-2. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
-2. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
-3. **ALWAYS INCLUDE SPECIFICATIONS**: When a user asks about product specifications, specs, or features (e.g., "specifications of GT50" or "what are the specs"), you MUST include ALL specifications from the product data provided. If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response. NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them.
-4. **USE BOTH KNOWLEDGE BASE AND WEBSITE DATA**: 
+2. **GREETINGS**: When users greet you or ask "How are you?" or "How are you today?" or "How are you today Nick?", respond naturally and warmly. Examples:
+   - ✅ CORRECT: "I'm good, thank you! How can I help you today?"
+   - ✅ CORRECT: "I'm doing great, thanks for asking! How can I assist you?"
+   - ✅ CORRECT: "I'm good, thank you! What can I help you with?"
+   - ❌ WRONG: "I'm here and ready to assist you!" (too robotic)
+   - ❌ WRONG: "How can I help you today?" (ignores the greeting)
+3. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
+4. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
+5. **ALWAYS INCLUDE SPECIFICATIONS**: When a user asks about product specifications, specs, or features (e.g., "specifications of GT50" or "what are the specs"), you MUST include ALL specifications from the product data provided. If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response. NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them.
+6. **USE BOTH KNOWLEDGE BASE AND WEBSITE DATA**: 
    - You have access to TWO sources of information:
      a) Knowledge Base Information (from knowledge.json) - contains FAQs, troubleshooting guides, and general product information
      b) Website Data (scraped live from gtech.co.uk) - contains current products, prices, sales, specifications, and real-time information
@@ -447,45 +472,67 @@ CRITICAL RULES:
      • Website Data is LIVE and current - always use it for prices, sales, and product availability
      • Knowledge Base is for general guidance - use it for FAQs and troubleshooting
    - NEVER ignore Website Data in favor of only Knowledge Base - they complement each other
-5. Understand context perfectly:
+7. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
    • If user asks "how to order these?", provide ordering steps for ALL products in lastProducts
-6. Always use live data from the website - prices, products, promotions are all fetched in real-time
-7. Be conversational and helpful - answer questions naturally based on the data provided
-8. If user asks about ordering multiple products, explain how to order each one
-9. **CATEGORY QUERIES - CRITICAL**: When users ask about a product category (e.g., "power tools", "garden tools", "floorcare", "hair care", "vacuum", "drill", "mower", "trimmer", etc.) OR ask for a category link (e.g., "give me the link", "what's the URL", "link to hair care"):
-   - Provide a brief, friendly response acknowledging the category
-   - ALWAYS include the FULL category page URL in your response - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
-   - CRITICAL: When providing category links, you MUST use the complete full URL starting with "https://www.gtech.co.uk/"
-   - NEVER use partial URLs, relative paths, or text like "products/hair-care" - ALWAYS use the complete URL
-   - Format examples (COPY THESE EXACT FORMATS - DO NOT MODIFY):
-     For "hair care" category: "Yes, we have a variety of hair care products available! You can browse all our hair care products here: https://www.gtech.co.uk/haircare.html"
-     For "power tools" category: "Yes, we have a range of power tools available! You can browse all our power tools here: https://www.gtech.co.uk/cordless-power-tools.html"
-   - When user explicitly asks for a link (e.g., "give me the link", "what's the URL", "link to hair care"), respond EXACTLY like this:
-     For hair care: "Of course! Here's the link to our hair care category: https://www.gtech.co.uk/haircare.html"
-     For power tools: "Of course! Here's the link to our power tools category: https://www.gtech.co.uk/cordless-power-tools.html"
-   - CRITICAL: The URL MUST be complete - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
-   - NEVER output "https://www.gtech.co.uk/products/" without the category name - this is WRONG
-   - The CORRECT format is: "https://www.gtech.co.uk/haircare.html" (for hair care category)
-   - The WRONG format is: "https://www.gtech.co.uk/products/" (missing the category name)
-   - IMPORTANT: DO NOT use markdown link syntax like [text](url) - just include the plain URL in your response
-   - DO NOT use brackets or parentheses around URLs - just write the URL as plain text
-   - The URL will be automatically converted to a clickable link, so just include it as plain text
-   - Keep the response concise and helpful - DO NOT list all products in detail
-   - DO NOT ask "which product are you interested in?" - instead direct them to the category page and ask for model number/product name
-11. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
-12. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
+8. Always use live data from the website - prices, products, promotions are all fetched in real-time
+9. Be conversational and helpful - answer questions naturally based on the data provided
+10. If user asks about ordering multiple products, explain how to order each one
+11. **CATEGORY QUERIES - CRITICAL**: 
+   - **When users ask "what categories do you have?" or "what categories are available?" or "list categories" or similar questions asking for ALL categories:**
+     - You MUST respond with ONLY the main product categories (not subcategories or accessories)
+     - List ONLY these 4 main categories:
+       1. Floorcare
+       2. Garden Tools
+       3. Hair Care
+       4. Power Tools
+     - Format your response EXACTLY like this (copy this format):
+       "We have the following main categories:
+       
+       Floorcare
+       Garden Tools
+       Hair Care
+       Power Tools
+       
+       We also have Floorcare Accessories, Power Tools Accessories, and Gardening Accessories available."
+     - DO NOT list subcategories like "Bagged Vacuum Cleaners", "Pet Vacuum Cleaners", "Cordless Upright Vacuums", etc.
+     - DO NOT list "Promotions" as a category
+     - The category names will automatically become clickable links, so just write them as plain text
+   - **When users ask about a SPECIFIC product category** (e.g., "power tools", "garden tools", "floorcare", "hair care", "vacuum", "drill", "mower", "trimmer", etc.) OR ask for a category link (e.g., "give me the link", "what's the URL", "link to hair care"):
+     - Provide a brief, friendly response acknowledging the category
+     - ALWAYS include the FULL category page URL in your response - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
+     - CRITICAL: When providing category links, you MUST use the complete full URL starting with "https://www.gtech.co.uk/"
+     - NEVER use partial URLs, relative paths, or text like "products/hair-care" - ALWAYS use the complete URL
+     - Format examples (COPY THESE EXACT FORMATS - DO NOT MODIFY):
+       For "hair care" category: "Yes, we have a variety of hair care products available! You can browse all our hair care products here: https://www.gtech.co.uk/haircare.html"
+       For "power tools" category: "Yes, we have a range of power tools available! You can browse all our power tools here: https://www.gtech.co.uk/cordless-power-tools.html"
+     - When user explicitly asks for a link (e.g., "give me the link", "what's the URL", "link to hair care"), respond EXACTLY like this:
+       For hair care: "Of course! Here's the link to our hair care category: https://www.gtech.co.uk/haircare.html"
+       For power tools: "Of course! Here's the link to our power tools category: https://www.gtech.co.uk/cordless-power-tools.html"
+     - CRITICAL: The URL MUST be complete - use the EXACT URLs from the "CATEGORY PAGE URLS" section below
+     - NEVER output "https://www.gtech.co.uk/products/" without the category name - this is WRONG
+     - The CORRECT format is: "https://www.gtech.co.uk/haircare.html" (for hair care category)
+     - The WRONG format is: "https://www.gtech.co.uk/products/" (missing the category name)
+     - IMPORTANT: DO NOT use markdown link syntax like [text](url) - just include the plain URL in your response
+     - DO NOT use brackets or parentheses around URLs - just write the URL as plain text
+     - The URL will be automatically converted to a clickable link, so just include it as plain text
+     - Keep the response concise and helpful - DO NOT list all products in detail
+     - DO NOT ask "which product are you interested in?" - instead direct them to the category page and ask for model number/product name
+12. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
+13. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
    - When user asks ANY question about sales, offers, or promotions (e.g., "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?", "what offers do you have?", "what offer do you have right now?", "what products do you have on offer?", "do you have any offer?", "what offers are available?", "what offers Gtech have?"):
    - CRITICAL: The word "offer" or "offers" in ANY form means the user is asking about offers
-   - You MUST respond with ONLY the offers page link - DO NOT list individual products
+   - You MUST respond with BOTH the offers page link AND the newsletter signup link - DO NOT list individual products
    - Your response should be SIMPLE and SHORT:
-     "You can view all our current offers here: https://www.gtech.co.uk/offers.html"
+     "You can view all our current offers here: https://www.gtech.co.uk/offers.html
+
+You can also signup for our newsletter to be the first to know about our exclusive discount and offer: https://www.gtech.co.uk/newsletter-signup"
    - DO NOT list products, prices, or product URLs
    - DO NOT show product names or details
-   - ONLY provide the offers page link
+   - ONLY provide the offers page link and newsletter signup link
    - Keep your response brief and to the point
-13. **Troubleshooting Help**: When a user reports a problem with a product:
+14. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
     • Provide step-by-step troubleshooting guidance based on the product information available
@@ -814,6 +861,63 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
       });
     }
     
+    // Add links to category names
+    // IMPORTANT: Process categories to ensure category names get linked even when they appear in phrases
+    // Sort categories by name length (longest first) to match longer names first
+    // This ensures "power tools" matches before "power" or "tools" individually
+    const categoryEntries = Object.entries(CATEGORY_URLS).sort((a, b) => b[0].length - a[0].length);
+    
+    categoryEntries.forEach(([categoryName, categoryUrl]) => {
+      try {
+        // Create a regex pattern that matches the category name
+        // Handle variations like "Hair Care" vs "Haircare", "Power Tools" vs "Power Tools", etc.
+        const escapedName = categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Use word boundaries to match whole words only, case-insensitive
+        // This will match "Floorcare" in "Floorcare Accessories" and "Power Tools" in "Power Tools Accessories"
+        // The \b ensures we match whole words, not parts of words
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        
+        // Collect all matches first to avoid issues with index shifting
+        const matches: Array<{index: number; text: string; length: number}> = [];
+        let match;
+        regex.lastIndex = 0;
+        
+        while ((match = regex.exec(formatted)) !== null) {
+          matches.push({ 
+            index: match.index, 
+            text: match[0],
+            length: match[0].length
+          });
+        }
+        
+        // Process matches from end to start to preserve indices
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const matchIndex = matches[i].index;
+          const matchText = matches[i].text;
+          const matchLength = matches[i].length;
+          
+          // Check if this match is already inside an anchor tag
+          const textBeforeMatch = formatted.substring(0, matchIndex);
+          const lastOpenTag = textBeforeMatch.lastIndexOf('<a');
+          const lastCloseTag = textBeforeMatch.lastIndexOf('</a>');
+          
+          // If there's an open tag after the last close tag, we're inside a link - skip it
+          if (lastOpenTag > lastCloseTag) {
+            continue;
+          }
+          
+          // Not inside a link, replace with link
+          const before = formatted.substring(0, matchIndex);
+          const after = formatted.substring(matchIndex + matchLength);
+          formatted = before + `<a href="${categoryUrl}" target="_blank" rel="noopener noreferrer">${matchText}</a>` + after;
+        }
+      } catch (categoryError) {
+        console.warn('[Chatbot] Error processing category link:', categoryError);
+        // Continue with next category
+      }
+    });
+    
     // Add links to common terms and category pages
     formatted = formatted.replace(/Gtech website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">Gtech website</a>`);
     formatted = formatted.replace(/our website/gi, `<a href="${GTECH_BASE_URL}" target="_blank">our website</a>`);
@@ -910,6 +1014,24 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
 async function generateIntelligentResponse(message: string, context: any, websiteData: any): Promise<ChatResponse> {
   const lowerMessage = message.toLowerCase();
   
+  // Handle greetings naturally
+  const greetingPatterns = [
+    /how are you/i,
+    /how's it going/i,
+    /how are things/i,
+    /how do you do/i,
+    /how's your day/i,
+    /how are you doing/i,
+    /how are you today/i,
+  ];
+  const isGreeting = greetingPatterns.some(pattern => pattern.test(message));
+  
+  if (isGreeting) {
+    return {
+      response: "I'm good, thank you! How can I help you today?"
+    };
+  }
+  
   // Handle "these" or "them" - refers to lastProducts
   if ((lowerMessage.includes('these') || lowerMessage.includes('them')) && context.lastProducts && context.lastProducts.length > 0) {
     if (lowerMessage.includes('order') || lowerMessage.includes('buy') || lowerMessage.includes('purchase')) {
@@ -944,11 +1066,11 @@ async function generateIntelligentResponse(message: string, context: any, websit
     }
   }
   
-  // Handle sales/promotions/offers - ONLY show the offers link, not product list
+  // Handle sales/promotions/offers - Show both offers link and newsletter signup link
   if (lowerMessage.includes('sale') || lowerMessage.includes('promotion') || lowerMessage.includes('discount') || lowerMessage.includes('offer')) {
-    // Simply return the offers page link without listing products
+    // Return both the offers page link and newsletter signup link
     return {
-      response: `You can view all our current offers here: <a href="https://www.gtech.co.uk/offers.html" target="_blank">https://www.gtech.co.uk/offers.html</a>`
+      response: `You can view all our current offers here: <a href="https://www.gtech.co.uk/offers.html" target="_blank">https://www.gtech.co.uk/offers.html</a><br/><br/>You can also signup for our newsletter to be the first to know about our exclusive discount and offer: <a href="https://www.gtech.co.uk/newsletter-signup" target="_blank">https://www.gtech.co.uk/newsletter-signup</a>`
     };
   }
   
