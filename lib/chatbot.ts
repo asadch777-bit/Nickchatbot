@@ -93,24 +93,8 @@ export async function processChatMessage(message: string, sessionId: string = 'd
     const problemKeywords = ['not working', 'broken', 'not starting', 'not turning on', 'stopped working', 'malfunction', 'issue', 'problem', 'faulty', 'defective'];
     const isProblemReport = problemKeywords.some(keyword => lowerMessage.includes(keyword));
 
-    // Handle greetings naturally
-    const greetingPatterns = [
-      /how are you/i,
-      /how's it going/i,
-      /how are things/i,
-      /how do you do/i,
-      /how's your day/i,
-      /how are you doing/i,
-      /how are you today/i,
-    ];
-    const isGreeting = greetingPatterns.some(pattern => pattern.test(message));
-    
-    if (isGreeting) {
-      // Add greeting response to history
-      const greetingResponse = "I'm good, thank you! How can I help you today?";
-      context.conversationHistory.push({ role: 'assistant', content: greetingResponse });
-      return { response: greetingResponse };
-    }
+    // Note: Greetings are handled naturally by the AI based on system prompt instructions
+    // No hardcoded responses - let the AI generate appropriate greeting responses
 
     // Check if user selected an option (starts with action: prefix)
     if (message.startsWith('action:')) {
@@ -445,21 +429,57 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       const systemPrompt = `You are NICK, an intelligent Gtech product assistant. You help customers with product information, pricing, ordering, and support.
 
 CRITICAL RULES:
-1. **ALWAYS USE FIRST-PERSON LANGUAGE**: You represent Gtech, so ALWAYS use "we", "our", "us" when referring to Gtech. NEVER use "they", "their", "them" when talking about Gtech. For example:
+0. **GENERAL WEBSITE REFERENCES - CRITICAL**: When mentioning the Gtech website in general responses (e.g., "Can you talk to me?", "tell me about Gtech", general questions, or when providing general information), ALWAYS use the main website URL: https://www.gtech.co.uk/ (NOT category-specific URLs like /cordless-vacuum-cleaners.html). Only use category URLs when the user specifically asks about that category or product type.
+   - ✅ CORRECT: "I'm here to assist you with any questions about Gtech https://www.gtech.co.uk/"
+   - ❌ WRONG: "I'm here to assist you with any questions about Gtech https://www.gtech.co.uk/cordless-vacuum-cleaners.html"
+   - Use category URLs ONLY when the user asks about that specific category
+   - **WHEN USER ASKS FOR WEBSITE LINK**: If user asks for "Gtech website link", "website link", "link to Gtech", "can I get the Gtech website link", respond simply and directly:
+     - ✅ CORRECT: "Here's the link to our website: https://www.gtech.co.uk/"
+     - ✅ CORRECT: "Of course! Here's our website: https://www.gtech.co.uk/"
+     - ❌ WRONG: "You can visit the https://www.gtech.co.uk here: https://www.gtech.co.uk/" (redundant, mentions URL twice)
+     - Keep it simple - just provide the link once in a natural way
+1. **RESPOND TO THE ACTUAL QUERY**: Always respond directly to what the user is asking. If the user asks a question, answer it. If the user types a number or unclear text, ask for clarification. DO NOT default to greeting responses like "I'm good, thank you!" unless the user specifically asks "How are you?" or similar questions.
+2. **ALWAYS USE FIRST-PERSON LANGUAGE**: You represent Gtech, so ALWAYS use "we", "our", "us" when referring to Gtech. NEVER use "they", "their", "them" when talking about Gtech. For example:
    - ✅ CORRECT: "We offer a 2-year warranty on our products"
    - ❌ WRONG: "They offer a 2-year warranty on their products"
    - ✅ CORRECT: "You can contact our customer service"
    - ❌ WRONG: "You can contact their customer service"
-2. **GREETINGS**: When users greet you or ask "How are you?" or "How are you today?" or "How are you today Nick?", respond naturally and warmly. Examples:
-   - ✅ CORRECT: "I'm good, thank you! How can I help you today?"
-   - ✅ CORRECT: "I'm doing great, thanks for asking! How can I assist you?"
-   - ✅ CORRECT: "I'm good, thank you! What can I help you with?"
-   - ❌ WRONG: "I'm here and ready to assist you!" (too robotic)
-   - ❌ WRONG: "How can I help you today?" (ignores the greeting)
+3. **GREETINGS - CRITICAL - READ CAREFULLY**: 
+   - ONLY respond with "I'm good, thank you! How can I help you today?" when users SPECIFICALLY ask "How are you?" or similar questions about your well-being (e.g., "How are you today?", "How are you doing?", "How's it going?", "How are you today Nick?")
+   - For simple greetings like "hi", "hello", "hey", respond with: "Hello! How can I assist you today?" or "Hi! How can I help you?"
+   - **CRITICAL**: For ANY other query (numbers, product questions, random text, etc.), respond DIRECTLY to the query - DO NOT use "I'm good, thank you!" response
+   - **CRITICAL**: If the user's message is NOT a greeting or "how are you" question, respond to what they actually asked - do NOT default to greeting responses
+   - Examples:
+     - User: "How are you?" → ✅ "I'm good, thank you! How can I help you today?"
+     - User: "hi" → ✅ "Hello! How can I assist you today?"
+     - User: "2" → ❌ DO NOT respond with "I'm good, thank you!" - ask "I'm not sure what you mean by '2'. Could you please clarify what you're looking for?"
+     - User: "what products do you have?" → ❌ DO NOT use greeting response - answer the product question directly
+     - User: "hello" → ✅ "Hello! How can I assist you today?"
+     - User: "product price" → ❌ DO NOT use greeting response - ask which product they want the price for
 3. NEVER use predefined responses - ALWAYS generate responses based on the live data provided
 4. **ALWAYS INCLUDE PRICES**: When a user asks about a product price or asks "what's the price of [product]", you MUST include the exact price from the product data provided. NEVER say "I can't provide the price" or "check the website" - the price is in the data, always include it.
-5. **ALWAYS INCLUDE SPECIFICATIONS**: When a user asks about product specifications, specs, or features (e.g., "specifications of GT50" or "what are the specs"), you MUST include ALL specifications from the product data provided. If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response. NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them.
-6. **USE BOTH KNOWLEDGE BASE AND WEBSITE DATA**: 
+5. **PRODUCT RESPONSE FORMAT - CRITICAL**: When providing product information, you MUST format your response as follows:
+   - START your response with: "You can find more details and make a purchase here: [PRODUCT_URL]"
+   - Then provide ONLY the price and features (NOT specifications unless user asks for them)
+   - DO NOT start with "The [product] is priced at..." or "The [URL] is priced at..."
+   - DO NOT end with duplicate or broken URLs
+   - DO NOT include specifications unless the user explicitly asks for them (e.g., "specifications", "specs", "what are the specs")
+   - Example CORRECT format:
+     "You can find more details and make a purchase here: https://www.gtech.co.uk/cordless-vacuum-cleaners/cordless-wet-and-dry-vacuums/orca-hard-floor-cleaner.html
+     
+     Price: £349.99
+     
+     Features:
+     [list features]"
+   - Example WRONG format:
+     "The https://www.gtech.co.uk/... is priced at £349.99... [includes specifications without being asked]"
+6. **SPECIFICATIONS - ONLY WHEN ASKED**: 
+   - DO NOT include specifications in product responses unless the user explicitly asks for them
+   - When a user asks about product specifications, specs, or features (e.g., "specifications of GT50", "what are the specs", "specs of orca"), you MUST include ALL specifications from the product data provided
+   - If "SPECIFICATIONS:" is listed in the product data above, you MUST include them in your response when asked
+   - NEVER say "I don't have specifications" if specs are listed in the product data - they are there, always include them when asked
+   - NEVER include specifications automatically - only when the user explicitly requests them
+7. **USE BOTH KNOWLEDGE BASE AND WEBSITE DATA**: 
    - You have access to TWO sources of information:
      a) Knowledge Base Information (from knowledge.json) - contains FAQs, troubleshooting guides, and general product information
      b) Website Data (scraped live from gtech.co.uk) - contains current products, prices, sales, specifications, and real-time information
@@ -472,14 +492,14 @@ CRITICAL RULES:
      • Website Data is LIVE and current - always use it for prices, sales, and product availability
      • Knowledge Base is for general guidance - use it for FAQs and troubleshooting
    - NEVER ignore Website Data in favor of only Knowledge Base - they complement each other
-7. Understand context perfectly:
+8. Understand context perfectly:
    • "this" or "it" = refers to lastProduct (single product)
    • "these" or "them" = refers to lastProducts (multiple products shown)
    • If user asks "how to order these?", provide ordering steps for ALL products in lastProducts
-8. Always use live data from the website - prices, products, promotions are all fetched in real-time
-9. Be conversational and helpful - answer questions naturally based on the data provided
-10. If user asks about ordering multiple products, explain how to order each one
-11. **CATEGORY QUERIES - CRITICAL**: 
+9. Always use live data from the website - prices, products, promotions are all fetched in real-time
+10. Be conversational and helpful - answer questions naturally based on the data provided
+11. If user asks about ordering multiple products, explain how to order each one
+12. **CATEGORY QUERIES - CRITICAL**: 
    - **When users ask "what categories do you have?" or "what categories are available?" or "list categories" or similar questions asking for ALL categories:**
      - You MUST respond with ONLY the main product categories (not subcategories or accessories)
      - List ONLY these 4 main categories:
@@ -519,8 +539,8 @@ CRITICAL RULES:
      - The URL will be automatically converted to a clickable link, so just include it as plain text
      - Keep the response concise and helpful - DO NOT list all products in detail
      - DO NOT ask "which product are you interested in?" - instead direct them to the category page and ask for model number/product name
-12. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
-13. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
+13. IMPORTANT: If hasSales is true, there ARE sales going on. If hasBlackFriday is true, there IS a Black Friday sale. Always check these flags first before saying "no sales"
+14. **SALE PRODUCTS QUERIES - ABSOLUTELY CRITICAL - READ THIS CAREFULLY**: 
    - When user asks ANY question about sales, offers, or promotions (e.g., "is there a sale?", "which products are on sale?", "what products are on sale?", "show me sale products", "are there any sales?", "what offers do you have?", "what offer do you have right now?", "what products do you have on offer?", "do you have any offer?", "what offers are available?", "what offers Gtech have?"):
    - CRITICAL: The word "offer" or "offers" in ANY form means the user is asking about offers
    - You MUST respond with BOTH the offers page link AND the newsletter signup link - DO NOT list individual products
@@ -532,7 +552,7 @@ You can also signup for our newsletter to be the first to know about our exclusi
    - DO NOT show product names or details
    - ONLY provide the offers page link and newsletter signup link
    - Keep your response brief and to the point
-14. **Troubleshooting Help**: When a user reports a problem with a product:
+15. **Troubleshooting Help**: When a user reports a problem with a product:
     • If a product model number is provided (check conversation history or productModelNumber in context), use the available product information to help
     • Ask clarifying questions naturally to understand the problem better (e.g., "Can you tell me more about what's happening?" or "What exactly is the issue?")
     • Provide step-by-step troubleshooting guidance based on the product information available
@@ -935,7 +955,9 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
     // Use a robust pattern that captures complete URLs including full paths
     // Pattern: http:// or https:// followed by domain and path (allows hyphens, slashes, dots, etc.)
     // IMPORTANT: Match the complete URL including all path segments - stop only at whitespace, <, >, quotes
-    // This pattern ensures we capture URLs like https://www.gtech.co.uk/cordless-power-tools.html completely
+    // This pattern ensures we capture URLs like https://www.gtech.co.uk/cordless-vacuum-cleaners/cordless-wet-and-dry-vacuums/orca-hard-floor-cleaner.html completely
+    // Pattern matches: https:// or http:// followed by any non-whitespace characters (including /, -, ., etc.)
+    // We'll handle trailing punctuation separately
     const urlPattern = /https?:\/\/[^\s<>"']+/g;
     let lastIndex = 0;
     const urlMatches: Array<{ url: string; index: number; replacement: string }> = [];
@@ -985,8 +1007,88 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
     // Second pass: replace URLs from end to start to preserve indices
     for (let i = urlMatches.length - 1; i >= 0; i--) {
       const { url, index, replacement } = urlMatches[i];
+      // Use the original matched URL length to ensure we replace the exact portion
       formatted = formatted.substring(0, index) + replacement + formatted.substring(index + url.length);
     }
+    
+    // Fix any URLs that might have been broken or have incorrect link text
+    // Ensure URLs always show the full URL as clickable text
+    formatted = formatted.replace(/(<a href="(https?:\/\/[^"]+)"[^>]*>)([^<]+)(<\/a>)/g, (match, openTag, hrefUrl, linkText, closeTag) => {
+      // Always use the full URL from href as the link text to ensure the entire URL is clickable
+      // This fixes cases where the link text might be truncated or different from the href
+      if (linkText !== hrefUrl) {
+        return `<a href="${hrefUrl}" target="_blank" rel="noopener noreferrer">${hrefUrl}</a>`;
+      }
+      return match;
+    });
+    
+    // Final pass: Ensure all URLs have the full URL as clickable text
+    // This is a safety check to fix any URLs that might have incorrect link text
+    const urlLinkPattern = /<a\s+href="(https?:\/\/[^"]+)"[^>]*>([^<]+)<\/a>/g;
+    formatted = formatted.replace(urlLinkPattern, (match, hrefUrl, linkText) => {
+      // If link text is different from or shorter than the href URL, use the full URL as link text
+      if (linkText !== hrefUrl && linkText.length < hrefUrl.length) {
+        const escapedUrl = hrefUrl.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        return `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer">${hrefUrl}</a>`;
+      }
+      return match;
+    });
+    
+    // Clean up malformed/duplicate URLs (e.g., "https://www.gtech.co.uk/cordless-https://www.gtech.co.uk/...")
+    // This fixes cases where URLs get concatenated incorrectly or embedded within each other
+    
+    // Pattern 1: Fix URLs with embedded category URLs (e.g., "cordless-https://.../cordless-vacuum-cleaners.html-...")
+    // Example: "https://www.gtech.co.uk/cordless-https://www.gtech.co.uk/cordless-vacuum-cleaners.html-cleaners/cordless-wet-and-dry-vacuums/orca-hard-floor-cleaner.html"
+    formatted = formatted.replace(/https?:\/\/[^\/]+-https?:\/\/[^\/]+\/[^\/]+\.html-[^\s<>"')]+/g, (malformedUrl) => {
+      // Extract the domain (should be the same for both URLs)
+      const domainMatch = malformedUrl.match(/https?:\/\/([^\/]+)/);
+      if (domainMatch) {
+        const domain = domainMatch[1];
+        // Find the part after ".html-" which contains the rest of the product path
+        const htmlSplit = malformedUrl.split('.html-');
+        if (htmlSplit.length > 1) {
+          // Get the path after .html- and clean it up
+          let pathAfterHtml = htmlSplit[1].split(' ')[0].split(')')[0].split('"')[0].split("'")[0].split('<')[0];
+          // Remove any leading slashes if present
+          pathAfterHtml = pathAfterHtml.replace(/^\/+/, '');
+          // Reconstruct the complete URL
+          return `https://${domain}/${pathAfterHtml}`;
+        }
+      }
+      // Fallback: extract the longest complete URL
+      const urls = malformedUrl.match(/https?:\/\/[^\s<>"')]+/g);
+      if (urls && urls.length > 1) {
+        // Find the URL with the most path segments (usually the complete product URL)
+        return urls.reduce((longest, current) => {
+          const currentSegments = current.split('/').length;
+          const longestSegments = longest.split('/').length;
+          return currentSegments > longestSegments ? current : longest;
+        });
+      }
+      return malformedUrl;
+    });
+    
+    // Pattern 2: URLs embedded in the middle (e.g., "cordless-https://...")
+    formatted = formatted.replace(/https?:\/\/[^\/]+-https?:\/\/[^\s<>"')]+/g, (malformedUrl) => {
+      const urls = malformedUrl.match(/https?:\/\/[^\s<>"')]+/g);
+      if (urls && urls.length > 1) {
+        // Find the longest URL with most path segments
+        return urls.reduce((longest, current) => {
+          const currentSegments = current.split('/').length;
+          const longestSegments = longest.split('/').length;
+          if (currentSegments > longestSegments || (currentSegments === longestSegments && current.length > longest.length)) {
+            return current;
+          }
+          return longest;
+        });
+      }
+      return malformedUrl;
+    });
+    
+    // Pattern 3: Remove duplicate URLs at the end with closing parentheses
+    formatted = formatted.replace(/(https?:\/\/[^\s<>"']+)\s*\(https?:\/\/[^\s<>"')]+\)/g, (match, firstUrl) => {
+      return firstUrl;
+    });
     
     // Ensure proper line breaks before product numbers (fix cases where URL runs into next product number)
     // Fix pattern like ".html2)" or ".html 2)" or ".html2." or ".html 2." to have proper line breaks
@@ -1014,23 +1116,8 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
 async function generateIntelligentResponse(message: string, context: any, websiteData: any): Promise<ChatResponse> {
   const lowerMessage = message.toLowerCase();
   
-  // Handle greetings naturally
-  const greetingPatterns = [
-    /how are you/i,
-    /how's it going/i,
-    /how are things/i,
-    /how do you do/i,
-    /how's your day/i,
-    /how are you doing/i,
-    /how are you today/i,
-  ];
-  const isGreeting = greetingPatterns.some(pattern => pattern.test(message));
-  
-  if (isGreeting) {
-    return {
-      response: "I'm good, thank you! How can I help you today?"
-    };
-  }
+  // Note: Greetings are handled naturally by the AI based on system prompt instructions
+  // No hardcoded responses - let the AI generate appropriate greeting responses
   
   // Handle "these" or "them" - refers to lastProducts
   if ((lowerMessage.includes('these') || lowerMessage.includes('them')) && context.lastProducts && context.lastProducts.length > 0) {
