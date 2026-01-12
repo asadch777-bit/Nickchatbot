@@ -387,6 +387,24 @@ export async function processChatMessage(message: string, sessionId: string = 'd
       contextInfo += `DO NOT list products. DO NOT show product names, prices, or URLs. ONLY show the offers page link and newsletter signup link.\n\n`;
     }
     
+    // Check if user is asking about what products are available
+    const isProductListQuery = lowerMessage.includes('what products do you have') || 
+                               lowerMessage.includes('what products are available') ||
+                               lowerMessage.includes('show me products') ||
+                               (lowerMessage.includes('products') && (lowerMessage.includes('what') || lowerMessage.includes('list') || lowerMessage.includes('show')));
+    
+    if (isProductListQuery) {
+      contextInfo += `--- PRODUCT LIST QUERY DETECTED ---\n`;
+      contextInfo += `🚨 CRITICAL INSTRUCTION - READ CAREFULLY 🚨\n`;
+      contextInfo += `The user is asking about what products are available. You MUST respond with a simple, short message that directs them to the website.\n`;
+      contextInfo += `DO NOT list individual products. DO NOT show product names, prices, or product URLs.\n`;
+      contextInfo += `Your response should be EXACTLY like this (copy this format):\n`;
+      contextInfo += `"We offer a variety of products across our main categories. Here are some of the products available you can have a look on our website https://www.gtech.co.uk/\n\n`;
+      contextInfo += `If you will tell me about any specific product I can explain it to you."\n`;
+      contextInfo += `\nCRITICAL: Keep it simple - just direct them to the website and offer to help with specific products.\n`;
+      contextInfo += `DO NOT list products. DO NOT enumerate products. Just provide the website link and offer assistance.\n\n`;
+    }
+    
     if (context.lastProduct) {
       contextInfo += `Last product discussed: ${context.lastProduct.name} - Price: ${context.lastProduct.price}${context.lastProduct.originalPrice ? ` (was ${context.lastProduct.originalPrice})` : ''} - URL: ${context.lastProduct.url}\n`;
     }
@@ -439,6 +457,11 @@ CRITICAL RULES:
      - ❌ WRONG: "You can visit the https://www.gtech.co.uk here: https://www.gtech.co.uk/" (redundant, mentions URL twice)
      - Keep it simple - just provide the link once in a natural way
 1. **RESPOND TO THE ACTUAL QUERY**: Always respond directly to what the user is asking. If the user asks a question, answer it. If the user types a number or unclear text, ask for clarification. DO NOT default to greeting responses like "I'm good, thank you!" unless the user specifically asks "How are you?" or similar questions.
+   - **SPECIAL CASE - PRODUCT LIST QUERIES**: When users ask "what products do you have?" or "what products are available?" or "show me products" or similar questions asking about ALL products:
+     - DO NOT list individual products
+     - DO NOT enumerate products with numbers
+     - Respond with: "We offer a variety of products across our main categories. Here are some of the products available you can have a look on our website https://www.gtech.co.uk/\n\nIf you will tell me about any specific product I can explain it to you"
+     - Keep it simple - just direct them to the website and offer to help with specific products
 2. **ALWAYS USE FIRST-PERSON LANGUAGE**: You represent Gtech, so ALWAYS use "we", "our", "us" when referring to Gtech. NEVER use "they", "their", "them" when talking about Gtech. For example:
    - ✅ CORRECT: "We offer a 2-year warranty on our products"
    - ❌ WRONG: "They offer a 2-year warranty on their products"
