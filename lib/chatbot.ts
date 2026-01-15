@@ -341,7 +341,7 @@ export async function processChatMessage(
       const url = normalize(p.url) || GTECH_BASE_URL;
 
       resp += `<strong>${i + 1}. ${name}</strong><br/>`;
-      resp += `💰 ${price}${was ? ` <span style="text-decoration:line-through;color:#888;">was ${was}</span>` : ""}<br/>`;
+      resp += `💰 ${price}${was ? ` (was ${was})` : ""}<br/>`;
       resp += `🔗 <a href="${url}" target="_blank" rel="noopener noreferrer">View Product</a><br/><br/>`;
     });
 
@@ -461,7 +461,7 @@ async function generateFallbackResponse(
   if (products.length) {
     const p = products[0];
     return {
-      response: `<strong>${normalize(p.name)}</strong><br/><br/>💰 ${normalize(p.price)}${p.originalPrice ? ` <span style="text-decoration:line-through;color:#888;">was ${p.originalPrice}</span>` : ""}<br/>🔗 <a href="${p.url}" target="_blank" rel="noopener noreferrer">View Product</a>`,
+      response: `<strong>${normalize(p.name)}</strong><br/><br/>💰 ${normalize(p.price)}${p.originalPrice ? ` (was ${p.originalPrice})` : ""}<br/>🔗 <a href="${p.url}" target="_blank" rel="noopener noreferrer">View Product</a>`,
     };
   }
 
