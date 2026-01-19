@@ -209,7 +209,7 @@ function formatResponseWithLinks(response: string, products: Product[]): string 
   // Convert URLs to clickable links (simple + safe)
   formatted = formatted.replace(/https?:\/\/[^\s<>"']+/g, (url) => {
     const clean = url.replace(/[)\].,!?;:]+$/, "");
-    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${clean}</a>`;
+    return `<a href="${clean}">${clean}</a>`;
   });
 
   // Replace new lines
@@ -324,7 +324,7 @@ export async function processChatMessage(
 
     if (!saleList.length) {
       return {
-        response: `At the moment, I can’t see any sale items from the website feed. Please check our offers page here: <a href="${GTECH_BASE_URL}/offers.html" target="_blank">${GTECH_BASE_URL}/offers.html</a>`,
+        response: `At the moment, I can’t see any sale items from the website feed. Please check our offers page here: <a href="${GTECH_BASE_URL}/offers.html">${GTECH_BASE_URL}/offers.html</a>`,
       };
     }
 
@@ -342,10 +342,10 @@ export async function processChatMessage(
 
       resp += `<strong>${i + 1}. ${name}</strong><br/>`;
       resp += `💰 ${price}${was ? ` (was ${was})` : ""}<br/>`;
-      resp += `🔗 <a href="${url}" target="_blank" rel="noopener noreferrer">View Product</a><br/><br/>`;
+      resp += `🔗 <a href="${url}">View Product</a><br/><br/>`;
     });
 
-    resp += `You can also view all offers here: <a href="${GTECH_BASE_URL}/offers.html" target="_blank">${GTECH_BASE_URL}/offers.html</a>`;
+    resp += `You can also view all offers here: <a href="${GTECH_BASE_URL}/offers.html">${GTECH_BASE_URL}/offers.html</a>`;
 
     return { response: resp };
   }
@@ -440,7 +440,7 @@ async function generateFallbackResponse(
   for (const key of Object.keys(CATEGORY_URLS)) {
     if (lower.includes(key)) {
       return {
-        response: `Yes — you can browse our ${key} here: <a href="${CATEGORY_URLS[key]}" target="_blank">${CATEGORY_URLS[key]}</a>`,
+        response: `Yes — you can browse our ${key} here: <a href="${CATEGORY_URLS[key]}">${CATEGORY_URLS[key]}</a>`,
       };
     }
   }
@@ -452,7 +452,7 @@ async function generateFallbackResponse(
     lower.includes("products available")
   ) {
     return {
-      response: `We offer a variety of products across our main categories. Please have a look on our website: <a href="${GTECH_BASE_URL}" target="_blank">${GTECH_BASE_URL}</a><br/><br/>If you tell me a specific product name or model number, I can help you straight away.`,
+      response: `We offer a variety of products across our main categories. Please have a look on our website: <a href="${GTECH_BASE_URL}">${GTECH_BASE_URL}</a><br/><br/>If you tell me a specific product name or model number, I can help you straight away.`,
     };
   }
 
@@ -461,11 +461,11 @@ async function generateFallbackResponse(
   if (products.length) {
     const p = products[0];
     return {
-      response: `<strong>${normalize(p.name)}</strong><br/><br/>💰 ${normalize(p.price)}${p.originalPrice ? ` (was ${p.originalPrice})` : ""}<br/>🔗 <a href="${p.url}" target="_blank" rel="noopener noreferrer">View Product</a>`,
+      response: `<strong>${normalize(p.name)}</strong><br/><br/>💰 ${normalize(p.price)}${p.originalPrice ? ` (was ${p.originalPrice})` : ""}<br/>🔗 <a href="${p.url}">View Product</a>`,
     };
   }
 
   return {
-    response: `I’m here to help with product information, prices, offers, ordering, and support.<br/><br/>You can browse our products here: <a href="${GTECH_BASE_URL}" target="_blank">${GTECH_BASE_URL}</a><br/><br/>What product name or model number can I help you with?`,
+    response: `I’m here to help with product information, prices, offers, ordering, and support.<br/><br/>You can browse our products here: <a href="${GTECH_BASE_URL}">${GTECH_BASE_URL}</a><br/><br/>What product name or model number can I help you with?`,
   };
 }
