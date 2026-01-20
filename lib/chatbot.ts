@@ -366,6 +366,10 @@ Rules:
 - If user asks about product price/specs, include them if present in the context.
 - If user asks "what products do you have", send them to ${GTECH_BASE_URL} and ask which product they mean.
 - If user asks about categories, ALWAYS mention ALL of these: Floor Care (e.g., vacuums), Garden Tools (e.g., trimmers), Power Tools (e.g., drills and drivers), and Hair Care (e.g., hair dryers and straighteners).
+- NEVER provide markdown code examples, syntax explanations, or formatting tutorials. Do not show code blocks with markdown syntax.
+- NEVER show technical documentation, code snippets, or formatting guides.
+- If asked about markdown, formatting, code, or technical documentation topics, politely redirect the conversation to Gtech products and services.
+- Focus exclusively on Gtech products, services, support, and related information.
 
 Product Categories:
 Gtech offers products in these main categories:
@@ -435,6 +439,19 @@ async function generateFallbackResponse(
   websiteData: any
 ): Promise<ChatResponse> {
   const lower = (message || "").toLowerCase();
+
+  // Redirect markdown/formatting/code questions to product focus
+  if (
+    lower.includes("markdown") ||
+    lower.includes("formatting") ||
+    lower.includes("code example") ||
+    lower.includes("syntax") ||
+    lower.includes("show me") && (lower.includes("format") || lower.includes("code") || lower.includes("markdown"))
+  ) {
+    return {
+      response: `I'm here to help you with Gtech products and services. I can assist you with product information, pricing, sales, ordering, and support.<br/><br/>What Gtech product can I help you with today?`,
+    };
+  }
 
   // basic category links
   for (const key of Object.keys(CATEGORY_URLS)) {

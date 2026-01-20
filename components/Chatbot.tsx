@@ -63,9 +63,22 @@ function saveMessagesToStorage(messages: Message[]): void {
     // Only save if there's more than just the initial greeting
     if (messages.length > 1) {
       localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
+    } else {
+      // Clear storage if only initial message remains
+      localStorage.removeItem(MESSAGES_KEY);
     }
   } catch (error) {
     console.error('[Chatbot] Error saving messages to storage:', error);
+  }
+}
+
+function clearChatHistory(): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.removeItem(MESSAGES_KEY);
+  } catch (error) {
+    console.error('[Chatbot] Error clearing chat history:', error);
   }
 }
 
@@ -579,6 +592,13 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
     }
   };
 
+  const handleClearChat = () => {
+    // Reset to initial message and clear storage
+    setMessages([initialMessage]);
+    clearChatHistory();
+    inputRef.current?.focus();
+  };
+
   const handleOptionClick = async (option: { label: string; value: string; action?: string }) => {
     if (!option.action) return;
 
@@ -660,6 +680,16 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
             <span className={styles.statusDot}></span>
             <span>Online</span>
           </div>
+          {messages.length > 1 && (
+            <button
+              onClick={handleClearChat}
+              className={styles.clearButton}
+              aria-label="Clear chat history"
+              title="Clear chat"
+            >
+              🗑️
+            </button>
+          )}
           {onClose && (
             <button
               onClick={onClose}

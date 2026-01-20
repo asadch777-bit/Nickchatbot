@@ -123,12 +123,47 @@
   transform: scale(0.95);
 }
 
+.clearButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px 10px;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 50%;
+  color: white;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.clearButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.clearButton:active {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0.95);
+}
+
 /* Mobile touch optimization */
 @media (max-width: 768px) {
   .closeButton {
     min-width: 40px;
     min-height: 40px;
     font-size: 22px;
+  }
+
+  .clearButton {
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 18px;
   }
 }
 
@@ -137,6 +172,12 @@
     min-width: 38px;
     min-height: 38px;
     font-size: 20px;
+  }
+
+  .clearButton {
+    min-width: 34px;
+    min-height: 34px;
+    font-size: 16px;
   }
 }
 
