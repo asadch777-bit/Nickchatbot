@@ -20,18 +20,74 @@ interface ChatbotProps {
   onClose?: () => void;
 }
 
+// Helper functions for localStorage persistence
+const STORAGE_KEY_PREFIX = 'nick_chatbot_';
+const SESSION_ID_KEY = `${STORAGE_KEY_PREFIX}session_id`;
+const MESSAGES_KEY = `${STORAGE_KEY_PREFIX}messages`;
+
+function getPersistentSessionId(): string {
+  if (typeof window === 'undefined') return 'default';
+  
+  let sessionId = localStorage.getItem(SESSION_ID_KEY);
+  if (!sessionId) {
+    // Generate a persistent session ID
+    sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(SESSION_ID_KEY, sessionId);
+  }
+  return sessionId;
+}
+
+function loadMessagesFromStorage(): Message[] | null {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const stored = localStorage.getItem(MESSAGES_KEY);
+    if (!stored) return null;
+    
+    const parsed = JSON.parse(stored);
+    // Convert timestamp strings back to Date objects
+    return parsed.map((msg: any) => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp),
+    }));
+  } catch (error) {
+    console.error('[Chatbot] Error loading messages from storage:', error);
+    return null;
+  }
+}
+
+function saveMessagesToStorage(messages: Message[]): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    // Only save if there's more than just the initial greeting
+    if (messages.length > 1) {
+      localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
+    }
+  } catch (error) {
+    console.error('[Chatbot] Error saving messages to storage:', error);
+  }
+}
+
+const initialMessage: Message = {
+  role: 'assistant',
+  content: "Hi! I'm NICK, your intelligent\nGtech product assistant. I can help\nyou with product information,\npricing, sales, ordering, and more.\nAll information is fetched live from\nour website. What would you like\nto know?",
+  timestamp: new Date(),
+};
+
 export default function Chatbot({ onClose }: ChatbotProps = {}) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: "Hi! I'm NICK, your intelligent\nGtech product assistant. I can help\nyou with product information,\npricing, sales, ordering, and more.\nAll information is fetched live from\nour website. What would you like\nto know?",
-      timestamp: new Date(),
-    },
-  ]);
+  // Load persistent session ID
+  const [sessionId] = useState(() => getPersistentSessionId());
+  
+  // Load messages from storage or use initial message
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const stored = loadMessagesFromStorage();
+    return stored && stored.length > 0 ? stored : [initialMessage];
+  });
+  
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +97,12 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Load conversation history on mount
+    const stored = loadMessagesFromStorage();
+    if (stored && stored.length > 0) {
+      setMessages(stored);
+    }
   }, []);
 
   useEffect(() => {
@@ -461,7 +523,11 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => {
+      const updated = [...prev, userMessage];
+      saveMessagesToStorage(updated);
+      return updated;
+    });
     setInput('');
     setIsLoading(true);
 
@@ -484,14 +550,22 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
         showOptions: data.showOptions,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, assistantMessage];
+        saveMessagesToStorage(updated);
+        return updated;
+      });
     } catch (error) {
       const errorMessage: Message = {
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again later.',
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, errorMessage];
+        saveMessagesToStorage(updated);
+        return updated;
+      });
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -514,7 +588,11 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
       content: option.label,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => {
+      const updated = [...prev, userMessage];
+      saveMessagesToStorage(updated);
+      return updated;
+    });
     setIsLoading(true);
 
     try {
@@ -536,14 +614,22 @@ export default function Chatbot({ onClose }: ChatbotProps = {}) {
         showOptions: data.showOptions,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, assistantMessage];
+        saveMessagesToStorage(updated);
+        return updated;
+      });
     } catch (error) {
       const errorMessage: Message = {
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again later.',
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, errorMessage];
+        saveMessagesToStorage(updated);
+        return updated;
+      });
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();

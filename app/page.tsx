@@ -5,20 +5,7 @@ export default function Home() {
   return (
     <main className={styles.main}>
       <div className={styles.container}>
-        <div className={styles.header}>
-          <p className={styles.subtitle}>
-            Chat with NICK, your intelligent product assistant
-          </p>
-        </div>
         <ChatPopup />
-        <div className={styles.footer}>
-          <p>
-            Powered by Gtech |{' '}
-            <a href="https://www.gtech.co.uk/" target="_blank" rel="noopener noreferrer">
-              Visit Gtech Website
-            </a>
-          </p>
-        </div>
       </div>
     </main>
   );

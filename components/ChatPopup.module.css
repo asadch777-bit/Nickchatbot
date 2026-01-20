@@ -64,6 +64,8 @@
   flex-direction: column;
   overflow: hidden;
   z-index: 100000;
+  pointer-events: auto;
+  /* Ensure only the window itself captures pointer events, not the area behind it */
 }
 
 /* Header removed - now using green header from Chatbot component */
